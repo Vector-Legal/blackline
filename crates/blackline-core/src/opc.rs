@@ -17,7 +17,7 @@ pub fn unpack_archive(input_file: &Path, output_directory: &Path) -> Result<usiz
             input_file.display()
         )));
     }
-    let suffix = package::extension_of(input_file);
+    let suffix = extension_of(input_file);
     if !OOXML_EXTENSIONS.contains(&suffix.as_str()) {
         return Err(CoreError::invalid(format!(
             "{} must be a .docx, .pptx, or .xlsx file",
@@ -36,7 +36,7 @@ pub fn pack_dir(input_directory: &Path, output_file: &Path) -> Result<(), CoreEr
             input_directory.display()
         )));
     }
-    let suffix = package::extension_of(output_file);
+    let suffix = extension_of(output_file);
     if !OOXML_EXTENSIONS.contains(&suffix.as_str()) {
         return Err(CoreError::invalid(format!(
             "{} must be a .docx, .pptx, or .xlsx file",

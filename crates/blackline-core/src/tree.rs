@@ -15,7 +15,12 @@ pub enum PathStep {
     /// The `n`th child node (any kind), 0-based.
     Index(usize),
     /// The `n`th child *element* with this local name, 0-based.
-    Name { local: String, index: usize },
+    Name {
+        /// Local name to match, ignoring any namespace prefix.
+        local: String,
+        /// 0-based position among sibling elements sharing that local name.
+        index: usize,
+    },
 }
 
 /// A path from a document root to a descendant.

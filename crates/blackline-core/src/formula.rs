@@ -913,11 +913,11 @@ impl<'a> Parser<'a> {
                 }
                 Ok(inner)
             }
-            Some('"') | Some('\'') => Ok(Formula::Literal(Literal::String(self.parse_string()?))),
+            Some('"' | '\'') => Ok(Formula::Literal(Literal::String(self.parse_string()?))),
             Some(c) if c.is_ascii_digit() || c == '-' => {
                 Ok(Formula::Literal(Literal::Number(self.parse_number()?)))
             }
-            Some('/') | Some('.') | Some('*') => Ok(Formula::Selector(self.parse_selector()?)),
+            Some('/' | '.' | '*') => Ok(Formula::Selector(self.parse_selector()?)),
             Some(c) if is_ident_start(c) => {
                 let ident = self.peek_ident();
                 let after = self.rest()[ident.len()..].trim_start();
@@ -1168,7 +1168,7 @@ impl<'a> Parser<'a> {
     fn parse_string(&mut self) -> Result<String, CoreError> {
         self.skip_ws();
         let quote = match self.bump() {
-            Some(q @ '"') | Some(q @ '\'') => q,
+            Some(q @ ('"' | '\'')) => q,
             _ => return Err(self.error("expected string literal")),
         };
         let start = self.pos;

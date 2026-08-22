@@ -157,7 +157,7 @@ impl Docx {
 
     /// Header and footer part names.
     pub fn story_parts(&self) -> Vec<String> {
-        crate::edit::story_parts(&self.pkg)
+        edit::story_parts(&self.pkg)
     }
 
     /// Numbered view of a story part (`word/header2.xml`, …).

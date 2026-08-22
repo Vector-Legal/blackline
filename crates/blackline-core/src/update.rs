@@ -518,7 +518,7 @@ impl<'a> Parser<'a> {
     fn parse_source(&mut self) -> Result<(Option<String>, Option<String>), CoreError> {
         self.skip_ws();
         match self.peek() {
-            Some('"') | Some('\'') => Ok((None, Some(self.parse_string()?))),
+            Some('"' | '\'') => Ok((None, Some(self.parse_string()?))),
             Some('<') => Ok((Some(self.parse_xml_fragment()?), None)),
             _ => Err(self.error("expected a quoted string or an XML fragment")),
         }

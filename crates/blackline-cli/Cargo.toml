@@ -39,3 +39,6 @@ serde_json = { workspace = true }
 assert_cmd = { workspace = true }
 predicates = { workspace = true }
 tempfile = { workspace = true }
+
+[lints]
+workspace = true

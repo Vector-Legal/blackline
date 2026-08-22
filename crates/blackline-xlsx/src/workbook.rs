@@ -229,10 +229,7 @@ pub(crate) fn set_shared_strings(pkg: &mut Package, strings: &[String]) -> Resul
         }
     } else if strings.is_empty() {
         let rels = pkg.rels_for("xl/workbook.xml")?;
-        if rels
-            .by_type(blackline_core::ns::rel::SHARED_STRINGS)
-            .is_none()
-        {
+        if rels.by_type(ns::rel::SHARED_STRINGS).is_none() {
             return Ok(());
         }
     }
@@ -253,19 +250,13 @@ pub(crate) fn set_shared_strings(pkg: &mut Package, strings: &[String]) -> Resul
 
     if !existed {
         let mut ct = pkg.content_types()?;
-        ct.ensure_override(
-            "xl/sharedStrings.xml",
-            blackline_core::ns::content::SHARED_STRINGS,
-        );
+        ct.ensure_override("xl/sharedStrings.xml", ns::content::SHARED_STRINGS);
         pkg.set_content_types(&ct);
         let mut rels = pkg.rels_for("xl/workbook.xml")?;
-        if rels
-            .by_type(blackline_core::ns::rel::SHARED_STRINGS)
-            .is_none()
-        {
+        if rels.by_type(ns::rel::SHARED_STRINGS).is_none() {
             rels.add(blackline_core::Relationship::internal(
                 String::new(),
-                blackline_core::ns::rel::SHARED_STRINGS,
+                ns::rel::SHARED_STRINGS,
                 "sharedStrings.xml",
             ));
             pkg.set_rels_for("xl/workbook.xml", &rels);

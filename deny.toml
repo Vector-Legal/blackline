@@ -1,0 +1,39 @@
+# cargo-deny configuration. Run locally with `cargo deny check`.
+# See https://embarkstudios.github.io/cargo-deny/
+
+[graph]
+all-features = true
+
+[advisories]
+# Fail on any dependency with a filed RUSTSEC advisory.
+version = 2
+yanked = "deny"
+
+[licenses]
+version = 2
+# The crate is MIT. Only permissive licences that are compatible with
+# redistribution under MIT are allowed through.
+allow = [
+    "MIT",
+    "Apache-2.0",
+    "Apache-2.0 WITH LLVM-exception",
+    "BSD-2-Clause",
+    "BSD-3-Clause",
+    "ISC",
+    "Unicode-3.0",
+    "Zlib",
+    "MPL-2.0",
+]
+confidence-threshold = 0.9
+
+[bans]
+# Duplicate versions of the same crate bloat the build; warn rather than
+# fail, since transitive graphs routinely carry two majors.
+multiple-versions = "warn"
+wildcards = "deny"
+
+[sources]
+# Only crates.io. Anything from a git remote must be added deliberately.
+unknown-registry = "deny"
+unknown-git = "deny"
+allow-registry = ["https://github.com/rust-lang/crates.io-index"]

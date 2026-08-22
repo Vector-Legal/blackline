@@ -19,6 +19,39 @@ homepage = "https://github.com/Vector-Legal/blackline"
 # Update repository + homepage (and the README badges) if this repo moves.
 # Per-crate `documentation` URLs live on each member Cargo.toml (docs.rs).
 
+[workspace.lints.rust]
+# No `unsafe` anywhere in the tree today; keep it that way.
+unsafe_code = "forbid"
+missing_docs = "warn"
+unused_qualifications = "warn"
+
+[workspace.lints.clippy]
+# `clippy::all` is already enforced via CI's `-D warnings`. The list below
+# is a curated set that the tree passes cleanly today, so it guards against
+# regressions rather than parking a backlog of warnings.
+#
+# `clippy::pedantic` is deliberately NOT enabled: it reports ~930 findings
+# here, mostly `missing_errors_doc` and `must_use_candidate`. Adopt those
+# deliberately if you want them, rather than as an undifferentiated wall.
+dbg_macro = "warn"
+todo = "warn"
+unimplemented = "warn"
+mem_forget = "warn"
+verbose_file_reads = "warn"
+inefficient_to_string = "warn"
+cloned_instead_of_copied = "warn"
+explicit_iter_loop = "warn"
+implicit_clone = "warn"
+manual_assert = "warn"
+uninlined_format_args = "warn"
+semicolon_if_nothing_returned = "warn"
+needless_continue = "warn"
+checked_conversions = "warn"
+from_iter_instead_of_collect = "warn"
+unnested_or_patterns = "warn"
+flat_map_option = "warn"
+maybe_infinite_iter = "warn"
+
 [workspace.dependencies]
 # Keep these versions in lockstep with workspace.package.version so
 # `cargo publish` can resolve crates.io dependencies after a transfer.
