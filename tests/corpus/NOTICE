@@ -1,0 +1,26 @@
+Apache POI test documents
+Copyright 2002-2026 The Apache Software Foundation
+
+This product includes test documents from Apache POI
+(https://github.com/apache/poi), licensed under the Apache License,
+Version 2.0.
+
+The files in tests/corpus/docx/ were copied from
+https://github.com/apache/poi/tree/trunk/test-data/document
+
+The files in tests/corpus/xlsx/ were copied from
+https://github.com/apache/poi/tree/trunk/test-data/spreadsheet
+
+The files in tests/corpus/pptx/ were copied from
+https://github.com/apache/poi/tree/trunk/test-data/slideshow
+
+A copy of the License is in LICENSE in this directory. You may
+also obtain a copy at
+
+    http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.

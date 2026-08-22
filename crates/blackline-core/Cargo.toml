@@ -1,0 +1,24 @@
+[package]
+name = "blackline-core"
+description = "OPC packages, XML DOM, TreeOp, formulas, RFC 5261 patch, and XQuery Update"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+authors.workspace = true
+repository.workspace = true
+homepage.workspace = true
+documentation = "https://docs.rs/blackline-core"
+readme = "README.md"
+keywords = ["ooxml", "opc", "xml", "office"]
+categories = ["encoding", "parser-implementations"]
+
+[dependencies]
+quick-xml = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+thiserror = { workspace = true }
+zip = { workspace = true }
+
+[dev-dependencies]
+tempfile = { workspace = true }

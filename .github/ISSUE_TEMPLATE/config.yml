@@ -1,0 +1,8 @@
+blank_issues_enabled: true
+contact_links:
+  - name: CLI reference
+    url: https://github.com/Vector-Legal/blackline/blob/main/docs/cli.md
+    about: Command reference for blackline / bl
+  - name: Security reports
+    url: https://github.com/Vector-Legal/blackline/security/advisories/new
+    about: Private vulnerability reporting — do not open a public issue

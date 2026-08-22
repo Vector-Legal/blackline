@@ -1,0 +1,40 @@
+name: Bug report
+description: Something is broken or incorrect
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for the report. Please do **not** attach documents that
+        contain real personal or confidential data — generate a
+        minimal file with `bl` instead.
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected
+    validations:
+      required: true
+  - type: textarea
+    id: actual
+    attributes:
+      label: Actual
+    validations:
+      required: true
+  - type: textarea
+    id: repro
+    attributes:
+      label: Reproduction
+      description: CLI commands or a short Rust snippet. Prefer `bl fixtures` plus a few edits.
+      render: bash
+    validations:
+      required: true
+  - type: input
+    id: version
+    attributes:
+      label: Version
+      description: `blackline --version` or crate version
+  - type: input
+    id: rustc
+    attributes:
+      label: rustc
+      description: `rustc --version` if this is a library issue

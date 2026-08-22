@@ -1,0 +1,17 @@
+name: Documentation
+description: A gap or error in the README, docs/, or rustdoc
+labels: ["documentation"]
+body:
+  - type: textarea
+    id: location
+    attributes:
+      label: Where
+      description: File, heading, or rustdoc item.
+    validations:
+      required: true
+  - type: textarea
+    id: issue
+    attributes:
+      label: What's wrong or missing
+    validations:
+      required: true

@@ -1,0 +1,23 @@
+[package]
+name = "blackline-docx"
+description = "Read, search, edit, redline, track, comment, create, and validate DOCX documents"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+authors.workspace = true
+repository.workspace = true
+homepage.workspace = true
+documentation = "https://docs.rs/blackline-docx"
+readme = "README.md"
+keywords = ["docx", "ooxml", "word", "office"]
+categories = ["encoding", "text-processing"]
+
+[dependencies]
+blackline-core = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+thiserror = { workspace = true }
+
+[dev-dependencies]
+tempfile = { workspace = true }

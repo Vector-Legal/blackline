@@ -1,0 +1,45 @@
+[workspace]
+resolver = "2"
+members = [
+    "crates/blackline-core",
+    "crates/blackline-docx",
+    "crates/blackline-xlsx",
+    "crates/blackline-pptx",
+    "crates/blackline-cli",
+]
+
+[workspace.package]
+version = "0.3.0"
+edition = "2021"
+rust-version = "1.88"
+license = "MIT"
+authors = ["Vector Legal Systems, PBC"]
+repository = "https://github.com/Vector-Legal/blackline"
+homepage = "https://github.com/Vector-Legal/blackline"
+# Update repository + homepage (and the README badges) if this repo moves.
+# Per-crate `documentation` URLs live on each member Cargo.toml (docs.rs).
+
+[workspace.dependencies]
+# Keep these versions in lockstep with workspace.package.version so
+# `cargo publish` can resolve crates.io dependencies after a transfer.
+blackline-core = { path = "crates/blackline-core", version = "0.3.0" }
+blackline-docx = { path = "crates/blackline-docx", version = "0.3.0" }
+blackline-xlsx = { path = "crates/blackline-xlsx", version = "0.3.0" }
+blackline-pptx = { path = "crates/blackline-pptx", version = "0.3.0" }
+
+clap = { version = "4", features = ["derive"] }
+quick-xml = "0.36"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+tempfile = "3"
+thiserror = "2"
+zip = "2"
+
+assert_cmd = "2"
+predicates = "3"
+
+[profile.release]
+opt-level = 3
+lto = true
+codegen-units = 1
+strip = true

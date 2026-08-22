@@ -1,0 +1,16 @@
+/target
+**/*.rs.bk
+.idea/
+.vscode/
+*.swp
+*.swo
+.DS_Store
+
+# Secrets and local credentials — never commit these.
+.env
+.env.*
+!.env.example
+*.pem
+*.p12
+*.key
+.cargo/credentials.toml

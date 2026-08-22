@@ -1,0 +1,92 @@
+# Changelog
+
+All notable changes to this project are documented here.
+
+The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
+Versioning follows [SemVer](https://semver.org) as described in
+[docs/releasing.md](docs/releasing.md).
+
+## [Unreleased]
+
+### Added
+
+- README / CONTRIBUTING note that this repository is AI-generated.
+- Public-crate metadata (docs.rs URLs, per-crate MIT `LICENSE`, crates.io
+  install badges) and a [going-public checklist](docs/going-public.md).
+  The POI corpus now vendors the official Apache-2.0 text
+  (`tests/corpus/LICENSE`) next to `NOTICE`.
+- Track module on top of the CLI (`blackline track`). Multi-author
+  replace / insert / surgical delete / custom comments, plus
+  `diff_minimal` so a delete+insert of the same text cancels and
+  replacements keep shared prefix/suffix unmarked. CLI:
+  `track apply` / `track redline` / `track changes` / `track comments`
+  / `track settle`. Library: `Docx::track`, `TrackOp`, `track_redline`.
+- XML formulas in `blackline-core` (`formula`): RFC 5261 / XPath-subset
+  selectors (`//ins`, `/body/p[0]`, `[@attr="value"]`, `/@attr`,
+  `[last()]`) and XPath 1.0 functions (`count`, `exists`, `text`,
+  `attr`, `name`, `contains`, `starts_with`, `ends_with`, `concat`,
+  `substring`, `substring-before` / `after`, `string-length`,
+  `normalize-space`, `boolean`, `number`, `not`).
+- RFC 5261 patch module (`patch`) and XQuery Update module (`update`).
+  Both compile to `TreeOp` and are separate add-ons. CLI:
+  `xml eval` / `xml select` / `xml patch` / `xml update` / `xml edit`.
+  `--dry-run` prints compiled `TreeOp`s. `TreeOp::rename` is a new
+  primitive. 0-based indexes match `NodePath`.
+- GitHub Actions CI (fmt, clippy, tests, rustdoc, MSRV 1.88) and a
+  tag-driven GitHub Release workflow.
+- Contributor, security, and release documentation for a public crate.
+- Fifteen Apache POI `.docx` fixtures under `tests/corpus/docx/` and
+  library/CLI tests that edit and redline them (reject-all = original,
+  accept-all = revised).
+- Fifteen Apache POI `.xlsx` and fifteen `.pptx` fixtures under
+  `tests/corpus/xlsx/` and `tests/corpus/pptx/`, with library and CLI
+  tests for open / view / check / surgical edit / reopen. Sidecar
+  parts (charts, drawings, comments, media, notes, diagrams) stay
+  byte-identical. README lists the POI `test-data` directories those
+  files were copied from.
+- Relationship `check` treats `#fragment` hyperlink targets
+  (`#_ftn1`) as in-document anchors, not missing package parts.
+- XLSX reads omitted SpreadsheetML cell `r` attributes as the next
+  implicit A1-style address. Creating `xl/sharedStrings.xml` now
+  registers the workbook relationship and content-type override.
+- PPTX `set_text` replaces the whole text frame (first `a:t` gets the
+  new string; sibling runs in that `txBody` are cleared).
+- Structure-preserving DOCX replace: hyperlinks, bookmarks, multi-run
+  formatting, and other authors' tracked changes survive a nearby edit.
+- `set_hyperlink` op (`http:` / `mailto:` / other linkouts) and
+  `Docx::hyperlinks()`.
+- Edit headers/footers via `EditBuilder::part("header"|"footer"|path)`
+  and `bl docx edit --part`.
+- Two-document redline now diffs table cells and keeps nearby hyperlinks
+  when the change is a surgical text splice.
+- Comment `check` fails when `comments.xml` has orphans with no body
+  markers.
+
+## [0.3.0] — 2026-08-21
+
+Rewrite around OPC + XML primitives. The XML in the package is the document.
+
+### Added
+
+- In-memory `Package` with lossless untouched-part bytes, relationships,
+  and `[Content_Types].xml` as first-class types.
+- Path-addressed `TreeOp` mutations (`set_attr`, `set_text`, `insert_child`, …).
+- Thin `Docx` / `Xlsx` / `Pptx` façades: view, find, edit, create, check.
+- Agent-shaped CLI: `blackline <format> <verb>` plus `xml`, `unpack`,
+  `pack`, and `fixtures`.
+- Tracked changes (`w:ins` / `w:del`) with required authorship and
+  char / word / sentence granularity.
+- Two-document redline and comment insert/delete.
+- Synthetic fixture generator (`bl fixtures DIR`).
+
+### Removed
+
+- PDF crate and all PDF commands.
+- Legal-only modules (financing aliases, defined-term convention, section
+  refs, `restyle_phrase`, signature-matrix parser, `verify-refs`).
+- Legacy v1 CLI aliases.
+- Non-load-bearing dependencies (`similar`, `strsim`, `walkdir`, `rand`,
+  `regex`, `chrono`, `base64`).
+
+[Unreleased]: https://github.com/Vector-Legal/blackline/compare/v0.3.0...HEAD
+[0.3.0]: https://github.com/Vector-Legal/blackline/releases/tag/v0.3.0
