@@ -58,11 +58,11 @@ impl ContentTypes {
                     }
                 }
                 "Override" => {
-                    if let (Some(pn), Some(ct)) =
+                    if let (Some(part), Some(ct)) =
                         (n.get_attr("PartName"), n.get_attr("ContentType"))
                     {
                         overrides.push(OverrideType {
-                            part_name: pn.to_string(),
+                            part_name: part.to_string(),
                             content_type: ct.to_string(),
                         });
                     }
