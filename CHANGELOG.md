@@ -8,6 +8,19 @@ Versioning follows [SemVer](https://semver.org) as described in
 
 ## [Unreleased]
 
+### Fixed
+
+- XML text parsing no longer drops entity references. quick-xml 0.37
+  began emitting entities as their own `GeneralRef` events instead of
+  inlining them into the adjacent text event, and the parser's catch-all
+  arm silently discarded them — so `Smith &amp; Wesson` round-tripped as
+  `Smith  Wesson`. Entities are now resolved explicitly and adjacent text
+  runs merge into a single node.
+
+### Changed
+
+- Bumped `quick-xml` 0.36 → 0.41 and `zip` 2 → 8.
+
 ### Added
 
 - README / CONTRIBUTING note that this repository is AI-generated.

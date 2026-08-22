@@ -28,12 +28,12 @@ blackline-xlsx = { path = "crates/blackline-xlsx", version = "0.3.0" }
 blackline-pptx = { path = "crates/blackline-pptx", version = "0.3.0" }
 
 clap = { version = "4", features = ["derive"] }
-quick-xml = "0.36"
+quick-xml = "0.41"
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 tempfile = "3"
 thiserror = "2"
-zip = "2"
+zip = "8"
 
 assert_cmd = "2"
 predicates = "3"
