@@ -1,0 +1,18 @@
+# Spell checker config for https://github.com/crate-ci/typos
+[files]
+extend-exclude = [
+    "Cargo.lock",
+    "tests/corpus/**",           # vendored Apache POI binaries
+    "assets/**",                 # logos
+    "crates/*/src/assets/**",    # Word-generated theme/style XML: the hex
+                                 # colour literals in there (7BA0CD,
+                                 # DBE5F1, ...) read as typos.
+]
+
+[default.extend-words]
+# OOXML / domain vocabulary that is not a typo.
+ooxml = "ooxml"
+pptx = "pptx"
+xlsx = "xlsx"
+docx = "docx"
+opc = "opc"

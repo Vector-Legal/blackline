@@ -393,7 +393,7 @@ pub fn parse_named(data: &[u8], part: &str) -> Result<XmlDocument, CoreError> {
             Ok(Event::Eof) => {
                 return Err(CoreError::xml(part, "unexpected EOF before root element"));
             }
-            Ok(Event::Comment(_)) | Ok(Event::PI(_)) | Ok(Event::Text(_)) => {}
+            Ok(Event::Comment(_) | Event::PI(_) | Event::Text(_)) => {}
             Err(e) => return Err(CoreError::xml(part, format!("XML parse error: {e}"))),
             _ => {}
         }

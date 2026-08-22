@@ -1,0 +1,48 @@
+# Local git hooks. Install once with:
+#     pipx install pre-commit    (or: brew install pre-commit)
+#     pre-commit install
+#
+# These mirror what CI enforces, so a push should not be the first time
+# you learn that fmt or clippy is unhappy. Run across the whole tree with
+# `pre-commit run --all-files`.
+repos:
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v6.0.0
+    hooks:
+      - id: trailing-whitespace
+        exclude: '^tests/corpus/'
+      - id: end-of-file-fixer
+        exclude: '^(tests/corpus/|assets/)'
+      - id: check-merge-conflict
+      - id: check-yaml
+      - id: check-toml
+      - id: mixed-line-ending
+        args: [--fix=lf]
+        exclude: '^tests/corpus/'
+      - id: check-added-large-files
+        args: [--maxkb=512]
+        exclude: '^(tests/corpus/|assets/)'
+
+  - repo: https://github.com/crate-ci/typos
+    rev: v1.31.1
+    hooks:
+      - id: typos
+
+  # Rust hooks run through the local toolchain rather than a pinned
+  # container, so they match whatever `rust-toolchain.toml` selects.
+  - repo: local
+    hooks:
+      - id: cargo-fmt
+        name: cargo fmt
+        entry: cargo fmt --all --
+        args: ["--check"]
+        language: system
+        types: [rust]
+        pass_filenames: false
+
+      - id: cargo-clippy
+        name: cargo clippy
+        entry: cargo clippy --workspace --all-targets -- -D warnings
+        language: system
+        types: [rust]
+        pass_filenames: false

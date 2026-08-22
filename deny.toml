@@ -1,0 +1,52 @@
+# cargo-deny configuration. Run locally with `cargo deny check`.
+# See https://embarkstudios.github.io/cargo-deny/
+
+[graph]
+all-features = true
+
+[advisories]
+# Fail on any dependency with a filed RUSTSEC advisory.
+version = 2
+yanked = "deny"
+
+[licenses]
+version = 2
+# The crate ships under MIT, so only permissive licences compatible with
+# MIT redistribution are allowed. Every current dependency is satisfied by
+# MIT / Apache-2.0 / Zlib / Unicode-3.0; the rest of the list is
+# forward-looking for common permissive licences.
+#
+# Deliberately NOT allowed:
+#   MPL-2.0      weak copyleft with per-file obligations
+#   CC0-1.0      public-domain dedication with no patent grant
+#   bzip2-1.0.6  bespoke licence
+# If a dependency needs one of those, CI fails and somebody decides
+# on purpose rather than inheriting it silently.
+allow = [
+    "MIT",
+    "MIT-0",
+    "Apache-2.0",
+    "Apache-2.0 WITH LLVM-exception",
+    "BSD-2-Clause",
+    "BSD-3-Clause",
+    "0BSD",
+    "ISC",
+    "Unicode-3.0",
+    "Zlib",
+]
+confidence-threshold = 0.9
+# An allowlist is forward-looking, so do not warn about entries that the
+# current graph happens not to use.
+unused-allowed-license = "allow"
+
+[bans]
+# Duplicate versions of the same crate bloat the build; warn rather than
+# fail, since transitive graphs routinely carry two majors.
+multiple-versions = "warn"
+wildcards = "deny"
+
+[sources]
+# Only crates.io. Anything from a git remote must be added deliberately.
+unknown-registry = "deny"
+unknown-git = "deny"
+allow-registry = ["https://github.com/rust-lang/crates.io-index"]
