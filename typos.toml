@@ -2,8 +2,11 @@
 [files]
 extend-exclude = [
     "Cargo.lock",
-    "tests/corpus/**",   # vendored Apache POI binaries
-    "assets/**",
+    "tests/corpus/**",           # vendored Apache POI binaries
+    "assets/**",                 # logos
+    "crates/*/src/assets/**",    # Word-generated theme/style XML: the hex
+                                 # colour literals in there (7BA0CD,
+                                 # DBE5F1, ...) read as typos.
 ]
 
 [default.extend-words]
