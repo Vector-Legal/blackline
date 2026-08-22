@@ -10,6 +10,11 @@ repository.workspace = true
 homepage.workspace = true
 documentation = "https://docs.rs/blackline-docx"
 readme = "README.md"
+# tests/corpus.rs drives the Apache POI corpus under the workspace's
+# tests/corpus/, which is deliberately not published. Ship the crate
+# without it so `cargo test` on the published package does not fail
+# looking for data that was never in the tarball.
+exclude = ["tests/corpus.rs", "tests/advanced.rs", "tests/track.rs"]
 keywords = ["docx", "ooxml", "word", "office"]
 categories = ["encoding", "text-processing"]
 
