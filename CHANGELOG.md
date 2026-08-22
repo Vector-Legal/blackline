@@ -8,21 +8,22 @@ Versioning follows [SemVer](https://semver.org) as described in
 
 ## [Unreleased]
 
-### Fixed
+## [0.3.0] — 2026-08-22
 
-- XML text parsing no longer drops entity references. quick-xml 0.37
-  began emitting entities as their own `GeneralRef` events instead of
-  inlining them into the adjacent text event, and the parser's catch-all
-  arm silently discarded them — so `Smith &amp; Wesson` round-tripped as
-  `Smith  Wesson`. Entities are now resolved explicitly and adjacent text
-  runs merge into a single node.
-
-### Changed
-
-- Bumped `quick-xml` 0.36 → 0.41 and `zip` 2 → 8.
+Rewrite around OPC + XML primitives. The XML in the package is the document.
 
 ### Added
 
+- In-memory `Package` with lossless untouched-part bytes, relationships,
+  and `[Content_Types].xml` as first-class types.
+- Path-addressed `TreeOp` mutations (`set_attr`, `set_text`, `insert_child`, …).
+- Thin `Docx` / `Xlsx` / `Pptx` façades: view, find, edit, create, check.
+- Agent-shaped CLI: `blackline <format> <verb>` plus `xml`, `unpack`,
+  `pack`, and `fixtures`.
+- Tracked changes (`w:ins` / `w:del`) with required authorship and
+  char / word / sentence granularity.
+- Two-document redline and comment insert/delete.
+- Synthetic fixture generator (`bl fixtures DIR`).
 - README / CONTRIBUTING note that this repository is AI-generated.
 - Public-crate metadata (docs.rs URLs, per-crate MIT `LICENSE`, crates.io
   install badges) and a [going-public checklist](docs/going-public.md).
@@ -75,22 +76,22 @@ Versioning follows [SemVer](https://semver.org) as described in
 - Comment `check` fails when `comments.xml` has orphans with no body
   markers.
 
-## [0.3.0] — 2026-08-21
+### Changed
 
-Rewrite around OPC + XML primitives. The XML in the package is the document.
+- Bumped `quick-xml` 0.36 → 0.41 and `zip` 2 → 8.
+- `zip` is built with only the `deflate` codec. OOXML packages are ZIP
+  with deflate or stored entries, so the default `aes-crypto`, `bzip2`,
+  `deflate64`, `lzma`, `ppmd`, `xz` and `zstd` features are off. That
+  drops six transitive crates and shrinks the binary.
 
-### Added
+### Fixed
 
-- In-memory `Package` with lossless untouched-part bytes, relationships,
-  and `[Content_Types].xml` as first-class types.
-- Path-addressed `TreeOp` mutations (`set_attr`, `set_text`, `insert_child`, …).
-- Thin `Docx` / `Xlsx` / `Pptx` façades: view, find, edit, create, check.
-- Agent-shaped CLI: `blackline <format> <verb>` plus `xml`, `unpack`,
-  `pack`, and `fixtures`.
-- Tracked changes (`w:ins` / `w:del`) with required authorship and
-  char / word / sentence granularity.
-- Two-document redline and comment insert/delete.
-- Synthetic fixture generator (`bl fixtures DIR`).
+- XML text parsing no longer drops entity references. quick-xml 0.37
+  began emitting entities as their own `GeneralRef` events instead of
+  inlining them into the adjacent text event, and the parser's catch-all
+  arm silently discarded them — so `Smith &amp; Wesson` round-tripped as
+  `Smith  Wesson`. Entities are now resolved explicitly and adjacent text
+  runs merge into a single node.
 
 ### Removed
 
