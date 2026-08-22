@@ -441,12 +441,29 @@ fn parse_element(
             }
             Ok(Event::End(_)) => break,
             Ok(Event::Text(ref e)) => {
-                let text = e
-                    .unescape()
+                // quick-xml >= 0.37 replaced `BytesText::unescape` with
+                // `xml10_content`, which decodes bytes and normalizes EOLs but
+                // does not resolve entities. The write path escapes via
+                // `xml_escape_text`, so both directions must stay in step.
+                let decoded = e
+                    .xml10_content()
+                    .map_err(|e| format!("text decode error: {e}"))?;
+                let text = quick_xml::escape::unescape(&decoded)
                     .map_err(|e| format!("text unescape error: {e}"))?;
-                if !text.is_empty() {
-                    children.push(XmlNode::Text(text.to_string()));
-                }
+                push_text(&mut children, &text);
+            }
+            Ok(Event::GeneralRef(ref e)) => {
+                // quick-xml >= 0.37 emits entity references as their own events
+                // rather than inlining them into the adjacent Text event. Without
+                // this arm the catch-all below silently DROPS every `&amp;` and
+                // `&#38;` in the document.
+                let name = e
+                    .decode()
+                    .map_err(|e| format!("entity decode error: {e}"))?;
+                let resolved = quick_xml::escape::unescape(&format!("&{name};"))
+                    .map_err(|e| format!("unresolved entity &{name};: {e}"))?
+                    .to_string();
+                push_text(&mut children, &resolved);
             }
             Ok(Event::CData(ref e)) => {
                 let text = String::from_utf8_lossy(e.as_ref()).to_string();
@@ -644,6 +661,21 @@ fn serialize_node(node: &XmlNode, out: &mut String, pretty: bool, indent: &str, 
     }
 }
 
+/// Appends text to `children`, merging into a trailing [`XmlNode::Text`]
+/// when present. quick-xml splits a single run of character data into
+/// several events (text, entity, text, ...), so without merging one
+/// logical text run would become several sibling nodes.
+fn push_text(children: &mut Vec<XmlNode>, text: &str) {
+    if text.is_empty() {
+        return;
+    }
+    if let Some(XmlNode::Text(existing)) = children.last_mut() {
+        existing.push_str(text);
+    } else {
+        children.push(XmlNode::Text(text.to_string()));
+    }
+}
+
 fn xml_escape_text(s: &str) -> String {
     s.replace('&', "&amp;")
         .replace('<', "&lt;")
@@ -771,5 +803,33 @@ mod tests {
     #[test]
     fn parse_empty_is_error() {
         assert!(parse(b"").is_err());
+    }
+
+    #[test]
+    fn text_entities_are_unescaped_on_parse() {
+        // Regression: quick-xml 0.37 replaced `BytesText::unescape` with
+        // `xml10_content`, which decodes but does NOT resolve entities.
+        // Swapping them naively leaves "&amp;" literal in document text.
+        let xml = b"<root><t>Smith &amp; Wesson &lt;draft&gt;</t></root>";
+        let doc = parse(xml).unwrap();
+        assert_eq!(
+            doc.root.find_child("t").unwrap().text_content(),
+            "Smith & Wesson <draft>"
+        );
+    }
+
+    #[test]
+    fn text_entities_round_trip_through_serialize() {
+        // Parse unescapes, serialize re-escapes. The byte output must be
+        // stable across a parse/serialize cycle or repeated edits corrupt text.
+        let xml = b"<?xml version=\"1.0\"?><root><t>a &amp; b &lt; c</t></root>";
+        let doc = parse(xml).unwrap();
+        let out = doc.to_bytes();
+        let again = parse(&out).unwrap();
+        assert_eq!(
+            again.root.find_child("t").unwrap().text_content(),
+            "a & b < c"
+        );
+        assert_eq!(doc.to_bytes(), again.to_bytes());
     }
 }
