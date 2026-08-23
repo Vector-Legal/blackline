@@ -94,6 +94,13 @@ other third-party Office files.
 - Internals: `docs/architecture.md`.
 - Public Rust items need rustdoc comments (`///`).
 - Note user-visible changes in `CHANGELOG.md` under `[Unreleased]`.
+- **Command examples in the READMEs are tested.**
+  `crates/blackline/tests/readme.rs` extracts every `bl …` invocation from
+  the fenced blocks in both READMEs and checks the subcommand exists and each
+  long flag appears in that subcommand's `--help`. Adding an example that does
+  not work fails the test suite, and so does renaming a flag without updating
+  the docs. The "use it from a coding agent" block especially: agents run it
+  verbatim and cannot tell when it is stale.
 
 ## Pull requests
 
