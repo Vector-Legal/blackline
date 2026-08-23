@@ -40,6 +40,82 @@ cargo install blackline              # binaries: blackline, bl
 cargo add blackline-docx            # or blackline-xlsx / blackline-pptx
 ```
 
+## Use it from a coding agent
+
+blackline is built to be driven by an agent: every verb is noun-first, the
+inspection commands emit JSON, and exit codes distinguish a failed operation
+(1) from bad usage (2). Paste the block below into Claude Code, Codex, Cursor,
+or any agent with shell access and it has what it needs.
+
+<details>
+<summary><b>Copy this into your agent</b></summary>
+
+````text
+Install and use `blackline`, a CLI for editing DOCX / XLSX / PPTX by
+operating on the OOXML inside the package (no HTML/Markdown/PDF conversion).
+
+Install (Rust toolchain required; `bl` is an alias for `blackline`):
+
+    cargo install blackline
+    bl --version
+
+Grammar is `bl <format> <verb> FILE [args]`, where format is docx | xlsx |
+pptx, plus the `track`, `xml`, `unpack`, `pack` and `fixtures` commands.
+
+Rules that matter:
+- `info`, `check`, `changes`, `comments` and `--json` always emit JSON. Parse
+  that rather than the human-readable `view` output.
+- Indices in edit and track ops are **1-based**.
+- Any tracked change or comment needs `--author NAME`, or set BLACKLINE_AUTHOR.
+- Edits are strict: if one op fails, nothing is written. Add `--dry-run` to
+  test a recipe, `--lenient` for best-effort.
+- Exit codes: 0 success, 1 operation failed, 2 usage error.
+- Write with `-o OUT` or `--in-place`. JSON args accept inline JSON,
+  `@file.json`, or `-` for stdin.
+
+Read a document:
+
+    bl docx view contract.docx --from 1 --to 40
+    bl docx outline contract.docx
+    bl docx info contract.docx                  # JSON
+    bl docx find contract.docx "Purchase Price" --whole-word --json
+
+Edit, leaving Word-native tracked changes a lawyer can accept or reject:
+
+    bl track apply contract.docx \
+      --ops '[{"op":"replace","index":1,"old":"thirty days","new":"sixty days"}]' \
+      -o revised.docx --author "Jane Doe"
+
+    bl docx changes revised.docx                # JSON: who changed what
+    bl track settle revised.docx --accept -o final.docx
+    bl track settle revised.docx --reject -o original.docx
+
+Diff two documents into a redline:
+
+    bl track redline original.docx revised.docx -o redline.docx --author "Jane Doe"
+
+Always verify after mutating, and compare against the original:
+
+    bl docx check revised.docx --original contract.docx
+
+Spreadsheets and decks work the same way:
+
+    bl xlsx info model.xlsx                     # sheet names are in `sheet_names`
+    bl xlsx view model.xlsx --sheet "Cap Table"
+    bl pptx edit deck.pptx --ops '[{"op":"set_text","slide":1,"element":1,"text":"Q3"}]' -o out.pptx
+
+Need something the verbs do not cover? Drop to the XML:
+
+    bl xml eval file.docx word/document.xml 'count(//ins)'
+    bl xml select file.docx word/document.xml '//p[0]'
+
+`bl fixtures ./corpus` writes sample DOCX/XLSX/PPTX files to experiment on
+without needing real documents. Run `bl <format> --help` for the full verb
+list, or see docs/cli.md.
+````
+
+</details>
+
 ## CLI
 
 ```

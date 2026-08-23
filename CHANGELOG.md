@@ -8,6 +8,14 @@ Versioning follows [SemVer](https://semver.org) as described in
 
 ## [Unreleased]
 
+### Added
+
+- README instructions that can be pasted straight into a coding agent
+  (Claude Code, Codex, Cursor, …) to install the CLI and drive it correctly:
+  the noun-verb grammar, which commands emit JSON, 1-based indices, the
+  `--author` requirement, and the strict-by-default edit behaviour. Included
+  in the `blackline` crate README so it also appears on crates.io.
+
 ## [0.3.0] — 2026-08-22
 
 Rewrite around OPC + XML primitives. The XML in the package is the document.
