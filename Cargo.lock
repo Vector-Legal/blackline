@@ -102,7 +102,7 @@ checksum = "843867be96c8daad0d758b57df9392b6d8d271134fce549de6ce169ff98a92af"
 
 [[package]]
 name = "blackline"
-version = "0.3.1"
+version = "0.3.2"
 dependencies = [
  "assert_cmd",
  "blackline-core",
@@ -118,7 +118,7 @@ dependencies = [
 
 [[package]]
 name = "blackline-core"
-version = "0.3.1"
+version = "0.3.2"
 dependencies = [
  "quick-xml",
  "serde",
@@ -130,7 +130,7 @@ dependencies = [
 
 [[package]]
 name = "blackline-docx"
-version = "0.3.1"
+version = "0.3.2"
 dependencies = [
  "blackline-core",
  "serde",
@@ -141,7 +141,7 @@ dependencies = [
 
 [[package]]
 name = "blackline-pptx"
-version = "0.3.1"
+version = "0.3.2"
 dependencies = [
  "blackline-core",
  "serde",
@@ -152,7 +152,7 @@ dependencies = [
 
 [[package]]
 name = "blackline-xlsx"
-version = "0.3.1"
+version = "0.3.2"
 dependencies = [
  "blackline-core",
  "serde",
