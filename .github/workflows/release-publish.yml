@@ -15,6 +15,11 @@ name: Publish release
 on:
   push:
     branches: [main]
+  # Recovery path. If a publish fails after the version has already landed on
+  # main, the push trigger will never fire again -- the version does not change
+  # a second time. Dispatching this publishes whatever version main is on,
+  # provided it is not already tagged.
+  workflow_dispatch:
 
 permissions:
   contents: read
@@ -38,6 +43,17 @@ jobs:
         run: |
           version() { sed -n 's/^version = "\(.*\)"$/\1/p' "$1" | head -1; }
           now=$(version Cargo.toml)
+          # Dispatched: release whatever is on main unless it is already out.
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            if git rev-parse -q --verify "refs/tags/v$now" >/dev/null; then
+              echo "release=false" >> "$GITHUB_OUTPUT"
+              echo "::error::v$now is already tagged — nothing to recover"
+              exit 1
+            fi
+            echo "release=true" >> "$GITHUB_OUTPUT"
+            echo "version=$now" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
           if ! git rev-parse -q --verify HEAD~1 >/dev/null; then
             echo "release=false" >> "$GITHUB_OUTPUT"; exit 0
           fi
@@ -86,12 +102,13 @@ jobs:
           RUSTDOCFLAGS: -Dwarnings
         run: cargo doc --workspace --no-deps
 
-      - name: Package every crate before anything is permanent
-        run: |
-          for p in blackline-core blackline-docx blackline-xlsx \
-                   blackline-pptx blackline; do
-            cargo package -p "$p" --no-verify
-          done
+      # Only blackline-core can be packaged ahead of time. The others depend
+      # on `blackline-core = "^<this version>"`, which does not exist on the
+      # registry until it is published -- so packaging them here can never
+      # succeed. The publish loop below packages each one at the point where
+      # its dependency is actually live.
+      - name: Package blackline-core before anything is permanent
+        run: cargo package -p blackline-core --no-verify
 
       - name: Tag
         env:
