@@ -8,6 +8,8 @@ Versioning follows [SemVer](https://semver.org) as described in
 
 ## [Unreleased]
 
+## [0.3.1] — 2026-08-23
+
 ### Added
 
 - README instructions that can be pasted straight into a coding agent
@@ -114,5 +116,6 @@ Rewrite around OPC + XML primitives. The XML in the package is the document.
 - Non-load-bearing dependencies (`similar`, `strsim`, `walkdir`, `rand`,
   `regex`, `chrono`, `base64`).
 
-[Unreleased]: https://github.com/Vector-Legal/blackline/compare/v0.3.0...HEAD
+[Unreleased]: https://github.com/Vector-Legal/blackline/compare/v0.3.1...HEAD
+[0.3.1]: https://github.com/Vector-Legal/blackline/compare/v0.3.0...v0.3.1
 [0.3.0]: https://github.com/Vector-Legal/blackline/releases/tag/v0.3.0
