@@ -1,5 +1,5 @@
 [package]
-name = "blackline-cli"
+name = "blackline"
 description = "Agent-first CLI for DOCX / XLSX / PPTX"
 version.workspace = true
 edition.workspace = true
@@ -8,14 +8,14 @@ license.workspace = true
 authors.workspace = true
 repository.workspace = true
 homepage.workspace = true
-documentation = "https://docs.rs/blackline-cli"
+documentation = "https://docs.rs/blackline"
 readme = "README.md"
 keywords = ["cli", "docx", "xlsx", "pptx", "ooxml"]
 categories = ["command-line-utilities", "encoding"]
 default-run = "blackline"
 
 [lib]
-name = "blackline_cli"
+name = "blackline"
 path = "src/lib.rs"
 
 [[bin]]

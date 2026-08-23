@@ -28,7 +28,7 @@ Version tags, SemVer, and the day-to-day release loop live in
 
       ```bash
       for n in blackline blackline-core blackline-docx \
-               blackline-xlsx blackline-pptx blackline-cli; do
+               blackline-xlsx blackline-pptx blackline; do
         code=$(curl -sS -o /dev/null -w "%{http_code}" \
           "https://crates.io/api/v1/crates/$n")
         echo "$n $code"   # 404 = free
@@ -37,11 +37,10 @@ Version tags, SemVer, and the day-to-day release loop live in
 
       As of 2026-08-22 all six names returned 404.
 
-The published CLI crate is **`blackline-cli`** (`cargo install
-blackline-cli` → binaries `blackline` and `bl`). The bare name
-`blackline` is still free. Claim it on the same day as the first
-publish if you want it — names are first-come, first-served and
-permanent.
+The published CLI crate is **`blackline`** (`cargo install blackline`
+→ binaries `blackline` and `bl`). The bare name was claimed by renaming
+the CLI crate before the first publish; crates.io names are first-come
+and permanent, so this could not have been done afterwards.
 
 ## 1. Create the empty public repository
 
@@ -122,7 +121,7 @@ to exist on crates.io):
 
 ```bash
 for p in blackline-core blackline-docx blackline-xlsx \
-         blackline-pptx blackline-cli; do
+         blackline-pptx blackline; do
   echo "===== $p ====="
   cargo package --list -p "$p" --no-verify
 done
@@ -148,22 +147,17 @@ cargo publish -p blackline-core
 cargo publish -p blackline-docx
 cargo publish -p blackline-xlsx
 cargo publish -p blackline-pptx
-cargo publish -p blackline-cli
+cargo publish -p blackline
 ```
 
 `cargo publish` (Rust ≥ 1.66) waits until the crate is in the index,
 so no manual sleep is required between those commands.
 
-Optional the same day, if you want the name: publish a tiny
-`blackline` crate, or rename `blackline-cli` to `blackline` *before*
-anyone else takes it. Do not publish a placeholder with a different
-owner.
-
 Verify:
 
-- https://crates.io/crates/blackline-cli
+- https://crates.io/crates/blackline
 - https://docs.rs/blackline-core (rebuilds automatically)
-- `cargo install blackline-cli` → `blackline --version` / `bl --version`
+- `cargo install blackline` → `blackline --version` / `bl --version`
 
 ## 6. Trusted Publishing (after the first manual publish)
 
@@ -217,6 +211,5 @@ crates.io needs the GitHub `read:org` scope to see teams.
 
 - Auto-publish from CI (step 6)
 - `cargo deny` / `cargo semver-checks` in CI
-- A `blackline` umbrella crate or renaming `blackline-cli`
 - This Week in Rust / r/rust announcement
 - XLSX / PPTX redline (still a draft PR, not required for 0.3.x)
