@@ -8,7 +8,7 @@
 # blackline
 
 [![CI](https://github.com/Vector-Legal/blackline/actions/workflows/ci.yml/badge.svg)](https://github.com/Vector-Legal/blackline/actions/workflows/ci.yml)
-[![crates.io](https://img.shields.io/crates/v/blackline-cli.svg)](https://crates.io/crates/blackline-cli)
+[![crates.io](https://img.shields.io/crates/v/blackline.svg)](https://crates.io/crates/blackline)
 [![docs.rs](https://docs.rs/blackline-core/badge.svg)](https://docs.rs/blackline-core)
 [![MSRV](https://img.shields.io/badge/msrv-1.88+-blue.svg)](rust-toolchain.toml)
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
@@ -29,14 +29,14 @@ on it.
 | [`blackline-docx`](crates/blackline-docx) | WordprocessingML: view, search, edit, redline, track, comments, create, check |
 | [`blackline-xlsx`](crates/blackline-xlsx) | SpreadsheetML: sheets, cells, shared strings, create, edit, check |
 | [`blackline-pptx`](crates/blackline-pptx) | PresentationML: slides, text frames, create, edit, check |
-| [`blackline-cli`](crates/blackline-cli) | Agent-first noun-verb CLI (`blackline` / `bl`) |
+| [`blackline`](crates/blackline) | Agent-first noun-verb CLI (`blackline` / `bl`) |
 
 Docs: [architecture](docs/architecture.md) · [CLI reference](docs/cli.md) ·
 [releasing](docs/releasing.md) · [going public](docs/going-public.md) ·
 [changelog](CHANGELOG.md)
 
 ```bash
-cargo install blackline-cli          # binaries: blackline, bl
+cargo install blackline              # binaries: blackline, bl
 cargo add blackline-docx            # or blackline-xlsx / blackline-pptx
 ```
 
@@ -210,7 +210,7 @@ crates/
 ├── blackline-docx/    # document façade, edits, revisions, track, comments
 ├── blackline-xlsx/    # workbook, cells, shared strings
 ├── blackline-pptx/    # presentation, slides
-└── blackline-cli/     # bins blackline + bl
+└── blackline/         # bins blackline + bl
 docs/                  # architecture, CLI, releasing, going public
 ```
 

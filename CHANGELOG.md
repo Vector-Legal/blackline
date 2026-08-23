@@ -78,6 +78,10 @@ Rewrite around OPC + XML primitives. The XML in the package is the document.
 
 ### Changed
 
+- The CLI crate is published as **`blackline`**, not `blackline-cli`
+  (`cargo install blackline`). Binaries are unchanged: `blackline` and
+  `bl`. crates.io names are first-come and permanent, so the bare name
+  had to be claimed before the first publish rather than after.
 - Bumped `quick-xml` 0.36 → 0.41 and `zip` 2 → 8.
 - `zip` is built with only the `deflate` codec. OOXML packages are ZIP
   with deflate or stored entries, so the default `aes-crypto`, `bzip2`,

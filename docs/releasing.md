@@ -3,7 +3,7 @@
 blackline is a Cargo workspace with a **single shared version**
 (`workspace.package.version` in the root `Cargo.toml`). All crates
 (`blackline-core`, `blackline-docx`, `blackline-xlsx`, `blackline-pptx`,
-`blackline-cli`) ship together.
+`blackline`) ship together.
 
 ## SemVer
 
@@ -103,7 +103,7 @@ cargo publish -p blackline-core
 cargo publish -p blackline-docx
 cargo publish -p blackline-xlsx
 cargo publish -p blackline-pptx
-cargo publish -p blackline-cli
+cargo publish -p blackline
 ```
 
 `blackline-core` first: the format crates depend on it, and the CLI

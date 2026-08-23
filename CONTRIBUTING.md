@@ -27,7 +27,7 @@ crates/blackline-core/    OPC package, XML DOM, TreeOp, formula, patch, update
 crates/blackline-docx/    WordprocessingML (including track / redline)
 crates/blackline-xlsx/    SpreadsheetML
 crates/blackline-pptx/    PresentationML
-crates/blackline-cli/     blackline / bl binaries
+crates/blackline/         blackline / bl binaries
 docs/                    architecture, CLI, releasing, going public
 ```
 
@@ -47,7 +47,7 @@ other third-party Office files.
 - Files that already contain Word `w:ins` / `w:del` must be flattened
   (`accept_all` or `reject_all`) before a two-document redline, or
   reject-all will also revert those older revisions.
-- CLI tests live in `crates/blackline-cli/tests/cli.rs` plus
+- CLI tests live in `crates/blackline/tests/cli.rs` plus
   `e2e_docx.rs`, `e2e_xlsx.rs`, `e2e_pptx.rs`, and `e2e_track.rs`.
 - Advanced DOCX cases (multi-author markup, hyperlinks, headers) live
   in `crates/blackline-docx/tests/advanced.rs`.

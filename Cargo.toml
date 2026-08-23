@@ -5,7 +5,7 @@ members = [
     "crates/blackline-docx",
     "crates/blackline-xlsx",
     "crates/blackline-pptx",
-    "crates/blackline-cli",
+    "crates/blackline",
 ]
 
 [workspace.package]
