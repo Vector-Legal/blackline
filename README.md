@@ -8,8 +8,8 @@
 # blackline
 
 [![CI](https://github.com/Vector-Legal/blackline/actions/workflows/ci.yml/badge.svg)](https://github.com/Vector-Legal/blackline/actions/workflows/ci.yml)
-[![crates.io](https://img.shields.io/crates/v/blackline.svg)](https://crates.io/crates/blackline)
-[![docs.rs](https://docs.rs/blackline-core/badge.svg)](https://docs.rs/blackline-core)
+[![crates.io](https://img.shields.io/crates/v/blackline?logo=rust&label=crates.io)](https://crates.io/crates/blackline)
+[![docs.rs](https://img.shields.io/docsrs/blackline-core?logo=docsdotrs&label=docs.rs)](https://docs.rs/blackline-core)
 [![MSRV](https://img.shields.io/badge/msrv-1.88+-blue.svg)](rust-toolchain.toml)
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 
