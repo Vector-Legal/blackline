@@ -1,0 +1,33 @@
+# cargo-release configuration.
+#
+#   cargo release patch               # dry run (the default)
+#   cargo release patch --execute     # actually do it
+#
+# Day-to-day work never touches a version. Entries accumulate under
+# `## [Unreleased]` in CHANGELOG.md, and a release turns that section into
+# a version. See docs/releasing.md.
+
+# All five crates ship together under one version, in one commit, behind
+# one tag -- rather than cargo-release's per-crate default of
+# `blackline-core-v0.3.1`, `blackline-docx-v0.3.1`, and so on.
+shared-version = true
+consolidate-commits = true
+tag-name = "v{{version}}"
+
+pre-release-commit-message = "Release {{version}}"
+tag-message = "v{{version}}"
+
+# Releases are cut from main only.
+allow-branch = ["main"]
+
+# cargo-release publishes workspace members in dependency order and waits
+# for the index between uploads, so blackline-core lands before the format
+# crates that depend on it.
+publish = true
+push = true
+tag = true
+
+# `pre-release-replacements` run once per package, with paths relative to
+# that package's directory. This workspace has a single changelog at the
+# root, so the replacements live in crates/blackline-core/release.toml --
+# scoped to one crate so they apply exactly once per release.

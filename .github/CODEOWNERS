@@ -1,0 +1,10 @@
+# Every change gets a review request. Ownership is deliberately broad
+# while the maintainer set is small; split it per directory when there
+# are more people to route to.
+*   @helpful-ml
+
+# Release machinery and supply-chain config: changes here can publish
+# code or widen what CI trusts, so they always want a second look.
+/.github/workflows/   @helpful-ml
+/release.toml         @helpful-ml
+/deny.toml            @helpful-ml

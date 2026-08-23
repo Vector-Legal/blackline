@@ -1,0 +1,23 @@
+# Per-crate cargo-release overrides.
+#
+# The workspace shares one CHANGELOG.md at the repository root, but
+# cargo-release applies `pre-release-replacements` once per package with
+# paths relative to that package. Scoping them to this one crate keeps the
+# changelog rewrite happening exactly once per release rather than five
+# times (which `exactly = 1` would reject on the second pass).
+
+# Roll `[Unreleased]` into the new version and fix the Keep a Changelog
+# link refs. `exactly = 1` turns a missed or duplicated match into a hard
+# error rather than a silently mangled changelog.
+[[pre-release-replacements]]
+file = "../../CHANGELOG.md"
+search = '## \[Unreleased\]'
+replace = "## [Unreleased]\n\n## [{{version}}] — {{date}}"
+exactly = 1
+
+[[pre-release-replacements]]
+file = "../../CHANGELOG.md"
+search = '\[Unreleased\]: (.*)/compare/v(.*)\.\.\.HEAD'
+replace = """[Unreleased]: ${1}/compare/v{{version}}...HEAD
+[{{version}}]: ${1}/compare/v${2}...v{{version}}"""
+exactly = 1
