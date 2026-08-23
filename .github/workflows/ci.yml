@@ -61,6 +61,23 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          fetch-depth: 0
+
+      # Versions move only through the Release workflow. A bump inside a
+      # normal pull request means two releases would claim the same number,
+      # or a half-bumped tree lands on main.
+      - name: Version must not change in a pull request
+        if: github.event_name == 'pull_request'
+        run: |
+          base="origin/${{ github.base_ref }}"
+          before=$(git show "$base:Cargo.toml" | sed -n 's/^version = "\(.*\)"$/\1/p' | head -1)
+          after=$(sed -n 's/^version = "\(.*\)"$/\1/p' Cargo.toml | head -1)
+          if [ "$before" != "$after" ]; then
+            echo "::error::workspace version changed ($before -> $after). Versions are bumped only by the Release workflow; see docs/releasing.md."
+            exit 1
+          fi
+          echo "version unchanged at $after"
 
       - name: cargo-deny
         uses: EmbarkStudios/cargo-deny-action@3c6349835b2b7b196a839186cb8b78e02f7b5f25 # v2

@@ -16,34 +16,87 @@ After `1.0.0`, follow [SemVer](https://semver.org): breaking changes bump
 major.
 
 Git tags are `vMAJOR.MINOR.PATCH` (for example `v0.3.0`). The `v` prefix
-is required — the Release workflow matches `v*.*.*`.
+is required.
+
+## Day-to-day work
+
+**Never touch a version number in a normal pull request.** CI rejects it.
+
+Land changes on `main` through pull requests and add user-visible entries
+under `## [Unreleased]` in `CHANGELOG.md`. That section is the release: it
+accumulates until somebody decides to cut a version.
 
 ## Cut a release
 
-1. Update `CHANGELOG.md` (move `[Unreleased]` into `[X.Y.Z] — YYYY-MM-DD`).
-2. Set `version` in the root `Cargo.toml` `[workspace.package]` table.
-3. Set the same version on the four `blackline-*` path dependencies in
-   `[workspace.dependencies]` (required for `cargo publish`).
-4. Commit: `Release vX.Y.Z`.
-5. Tag and push:
+Releases are deliberate, never automatic on push.
 
-   ```bash
-   git tag -a vX.Y.Z -m "vX.Y.Z"
-   git push origin HEAD
-   git push origin vX.Y.Z
-   ```
+1. **Actions → Release → Run workflow.**
+2. Pick a bump level (`patch` / `minor` / `major`), or type an explicit
+   version to override it.
+3. Leave **dry-run** checked the first time. The workflow then runs the
+   full verification and prints the version and diff it *would* produce
+   without pushing, tagging, or publishing.
+4. Re-run with dry-run unchecked.
 
-6. Pushing the tag runs [`.github/workflows/release.yml`](../.github/workflows/release.yml):
-   tests, then a GitHub Release with notes from the tag annotation and
-   CHANGELOG.
+The workflow, in order:
 
-## crates.io (optional)
+- refuses to run from any branch but `main`;
+- refuses to release when `[Unreleased]` is empty, or when the target tag
+  already exists;
+- runs fmt, clippy, the test suite (`--locked`), and rustdoc;
+- bumps `workspace.package.version` plus the four `blackline-*` entries in
+  `[workspace.dependencies]`, and rolls `[Unreleased]` into
+  `[X.Y.Z] — YYYY-MM-DD` with the Keep a Changelog link refs;
+- packages all five crates **before** anything becomes permanent;
+- commits `Release X.Y.Z`, tags `vX.Y.Z`, pushes both;
+- publishes the five crates bottom-up using a short-lived crates.io token
+  obtained over OIDC;
+- cuts the GitHub Release.
 
-Publishing is **not** automatic. First public publish, name
-reservation, Trusted Publishing, and GitHub settings:
-[going-public.md](going-public.md).
+The bump, changelog rewrite, commit, tag, push and publish are all
+[`cargo-release`](https://github.com/crate-ci/cargo-release), configured in
+[`release.toml`](../release.toml). It is runnable locally — dry-run is the
+default, so this is safe:
 
-When a version is ready:
+```bash
+cargo release patch              # show what would happen
+cargo release patch --execute    # do it
+```
+
+`shared-version` keeps all five crates on one version, `consolidate-commits`
+puts the bump in a single commit, and `tag-name = "v{{version}}"` gives one
+tag for the workspace instead of cargo-release's per-crate default of
+`blackline-core-v0.3.1`.
+
+The changelog rewrite lives in
+[`crates/blackline-core/release.toml`](../crates/blackline-core/release.toml)
+rather than the root config. `pre-release-replacements` run once per package
+with paths relative to that package, so a workspace-level rule would try to
+rewrite the shared changelog five times and `exactly = 1` would reject the
+second pass.
+
+### Things worth knowing
+
+**Publishing five crates is not atomic.** If the third upload fails, the
+first two are live and permanent — `cargo yank` hides a version but never
+deletes it. Recovery is to fix forward and cut the next patch. This is why
+the workflow runs the whole test suite and packages every crate before it
+uploads anything.
+
+**The first publish of each crate cannot be automated.** crates.io cannot
+attach a trusted publisher to a name that does not exist, so version one
+of each crate goes up by hand. See [going-public.md](going-public.md).
+
+**Trusted Publishing must be configured per crate**, pointing at this
+repository, the `release.yml` workflow, and the `crates-io` environment
+that the release job declares. Without it the publish step has no
+credentials. Do not add a long-lived `CARGO_REGISTRY_TOKEN` secret.
+
+**The release job pushes to `main`,** so GitHub Actions needs to be a
+bypass actor on the `main` ruleset — otherwise the push is rejected by the
+required-pull-request rule.
+
+### Publishing by hand
 
 ```bash
 cargo publish -p blackline-core
@@ -53,18 +106,9 @@ cargo publish -p blackline-pptx
 cargo publish -p blackline-cli
 ```
 
-Publish `blackline-core` first. The format crates depend on it; the CLI
-depends on all four. Inspect the uploaded file set first with
+`blackline-core` first: the format crates depend on it, and the CLI
+depends on all four. Inspect the uploaded file set with
 `cargo package --list -p CRATE --no-verify`.
-
-A publish is permanent. `cargo yank` stops new dependents from picking
-that version; it does not delete the crate or any secret that shipped
-in it.
-
-For CI, prefer [Trusted Publishing](https://crates.io/docs/trusted-publishing)
-(OIDC, 30-minute token) over a long-lived `CARGO_REGISTRY_TOKEN`. The
-first version of each crate still has to be published by hand — crates.io
-cannot attach a trusted publisher to a name that does not exist yet.
 
 ## Moving the repository
 
