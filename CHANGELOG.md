@@ -8,6 +8,8 @@ Versioning follows [SemVer](https://semver.org) as described in
 
 ## [Unreleased]
 
+## [0.3.2] — 2026-08-23
+
 ### Fixed
 
 - The `blackline` crate README pointed its API-docs link at
@@ -122,6 +124,7 @@ Rewrite around OPC + XML primitives. The XML in the package is the document.
 - Non-load-bearing dependencies (`similar`, `strsim`, `walkdir`, `rand`,
   `regex`, `chrono`, `base64`).
 
-[Unreleased]: https://github.com/Vector-Legal/blackline/compare/v0.3.1...HEAD
+[Unreleased]: https://github.com/Vector-Legal/blackline/compare/v0.3.2...HEAD
+[0.3.2]: https://github.com/Vector-Legal/blackline/compare/v0.3.1...v0.3.2
 [0.3.1]: https://github.com/Vector-Legal/blackline/compare/v0.3.0...v0.3.1
 [0.3.0]: https://github.com/Vector-Legal/blackline/releases/tag/v0.3.0
