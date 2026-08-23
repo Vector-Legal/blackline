@@ -78,6 +78,6 @@ Run `bl <format> --help` for the full verb list.
 
 - [CLI reference](https://github.com/Vector-Legal/blackline/blob/main/docs/cli.md)
 - [Repository](https://github.com/Vector-Legal/blackline)
-- [docs.rs](https://docs.rs/blackline)
+- [API docs](https://docs.rs/blackline-core) — the library lives in `blackline-core`
 
 License: MIT.

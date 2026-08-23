@@ -8,6 +8,12 @@ Versioning follows [SemVer](https://semver.org) as described in
 
 ## [Unreleased]
 
+### Fixed
+
+- The `blackline` crate README pointed its API-docs link at
+  `docs.rs/blackline`, which documents only the thin CLI wrapper. It now
+  points at `docs.rs/blackline-core`, where the library actually is.
+
 ## [0.3.1] — 2026-08-23
 
 ### Added
