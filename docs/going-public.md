@@ -164,20 +164,25 @@ Verify:
 crates.io cannot attach Trusted Publishing to a crate that does not
 exist yet. After step 5:
 
-1. On each crate → Settings → Trusted Publishing, add:
-   - owner / repo
-   - workflow filename (for example `release.yml`)
-   - optional GitHub Environment `crates-io` (required reviewers)
-2. Give the publish job `permissions: id-token: write`.
-3. Exchange the OIDC token with
-   [`rust-lang/crates-io-auth-action`](https://github.com/rust-lang/crates-io-auth-action).
-4. Remove `CARGO_REGISTRY_TOKEN` from GitHub secrets once OIDC works.
+On each of the five crates → Settings → Trusted Publishing, add:
 
-Do **not** put a long-lived token in the repository.
+| Field | Value |
+|-------|-------|
+| Repository owner | `Vector-Legal` |
+| Repository name | `blackline` |
+| Workflow filename | `release-publish.yml` |
+| Environment | `crates-io` |
 
-The current [`.github/workflows/release.yml`](../.github/workflows/release.yml)
-only creates a GitHub Release. Wire crates.io publish into it only
-after Trusted Publishing is configured.
+The workflow side is already wired:
+[`release-publish.yml`](../.github/workflows/release-publish.yml) declares
+`id-token: write`, runs the `crates-io` environment, and exchanges the OIDC
+token with
+[`rust-lang/crates-io-auth-action`](https://github.com/rust-lang/crates-io-auth-action).
+Until Trusted Publishing is registered on each crate, that step has no
+credentials and the publish fails.
+
+Do **not** add a long-lived `CARGO_REGISTRY_TOKEN` secret. Revoke the manual
+token used for the first publish once OIDC works.
 
 ## 7. Owners
 
