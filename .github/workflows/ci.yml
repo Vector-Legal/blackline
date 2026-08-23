@@ -67,8 +67,13 @@ jobs:
       # Versions move only through the Release workflow. A bump inside a
       # normal pull request means two releases would claim the same number,
       # or a half-bumped tree lands on main.
+      # `release/*` is exempt: those pull requests are created by the Prepare
+      # release workflow and changing the version is the entire point of them.
+      # Without the exemption the release flow blocks itself.
       - name: Version must not change in a pull request
-        if: github.event_name == 'pull_request'
+        if: |
+          github.event_name == 'pull_request' &&
+          !startsWith(github.head_ref, 'release/')
         run: |
           base="origin/${{ github.base_ref }}"
           before=$(git show "$base:Cargo.toml" | sed -n 's/^version = "\(.*\)"$/\1/p' | head -1)
