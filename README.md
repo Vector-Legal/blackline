@@ -39,8 +39,8 @@ Docs: [architecture](docs/architecture.md) · [CLI reference](docs/cli.md) ·
 
 ```bash
 cargo install blackline              # binaries: blackline, bl
+cargo install blackline --features kalosm   # same CLI, plus a working `bl llm`
 cargo add blackline-docx            # or blackline-xlsx / blackline-pptx
-cargo install blackline-llm --features kalosm   # local LLM frontend
 ```
 
 ## Use it from a coding agent
@@ -63,7 +63,7 @@ Install (Rust toolchain required; `bl` is an alias for `blackline`):
     bl --version
 
 Grammar is `bl <format> <verb> FILE [args]`, where format is docx | xlsx |
-pptx, plus the `track`, `xml`, `unpack`, `pack` and `fixtures` commands.
+pptx, plus the `track`, `xml`, `llm`, `unpack`, `pack` and `fixtures` commands.
 
 Rules that matter:
 - `info`, `check`, `changes`, `comments` and `--json` always emit JSON. Parse
@@ -116,10 +116,10 @@ Need something the verbs do not cover? Drop to the XML:
 without needing real documents. Run `bl <format> --help` for the full verb
 list, or see docs/cli.md.
 
-Natural language (local LLM, separate binary):
+Natural language (local LLM on the same CLI; install with `--features kalosm`,
+and add `,metal` on Apple Silicon or `,cuda` on NVIDIA):
 
-    cargo install blackline-llm --features kalosm
-    blackline-llm contract.docx "change thirty days to sixty days" \
+    bl llm contract.docx "change thirty days to sixty days" \
         -o revised.docx --author "Jane Doe"
 ````
 
@@ -140,6 +140,7 @@ xlsx   view | info | find | edit | create | check | cat | parts
 pptx   view | info | find | edit | create | check | cat | parts
 xml    get | eval | select | edit | patch | update
 track  apply | redline | changes | comments | settle
+llm    FILE INSTRUCTION
 unpack FILE DIR
 pack   DIR FILE
 fixtures DIR
@@ -193,6 +194,10 @@ bl unpack file.docx unpacked/ && bl pack unpacked/ out.docx
 
 # Synthetic test corpus
 bl fixtures ./corpus
+
+# Natural language — same CLI; needs `--features kalosm` to run a model
+bl llm contract.docx "change thirty days to sixty days" \
+    -o revised.docx --author "Jane Doe"
 ```
 
 ### Conventions
@@ -210,12 +215,14 @@ Edits are **strict** unless `--lenient` is passed. `--dry-run` validates without
 
 ### Natural language
 
-`blackline-llm` is a separate binary. A local Kalosm model emits the op
+`bl llm` is a subcommand on this CLI. A local Kalosm model emits the op
 list; blackline applies it. Default model is quantized Phi-3.5 mini.
-See [docs/llm.md](docs/llm.md).
+`cargo install blackline` stays lean; rebuild with `--features kalosm`
+(plus `metal` or `cuda`) so the model runtime is present. The standalone
+`blackline-llm` binary is the same pipeline. See [docs/llm.md](docs/llm.md).
 
 ```bash
-blackline-llm contract.docx "change thirty days to sixty days" \
+bl llm contract.docx "change thirty days to sixty days" \
     -o revised.docx --author "Jane Doe"
 ```
 

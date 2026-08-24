@@ -7,14 +7,18 @@ native OOXML. The model never writes XML.
 This crate is AI-generated; see the
 [repository README](https://github.com/Vector-Legal/blackline#blackline).
 
+The same pipeline is `bl llm` on the main CLI. This crate is the
+library plus a standalone binary, if you want that install on its own.
+
 ```bash
-cargo install blackline-llm --features kalosm          # CPU, quantized
-cargo install blackline-llm --features kalosm,metal    # Apple Silicon
-cargo install blackline-llm --features kalosm,cuda     # NVIDIA
+cargo install blackline --features kalosm              # `bl llm`
+cargo install blackline-llm --features kalosm          # standalone
+cargo install blackline --features kalosm,metal        # Apple Silicon
+cargo install blackline --features kalosm,cuda         # NVIDIA
 ```
 
 ```bash
-blackline-llm contract.docx "change thirty days to sixty days" \
+bl llm contract.docx "change thirty days to sixty days" \
     -o revised.docx --author "Jane Doe"
 ```
 
@@ -37,6 +41,7 @@ No HTML, Markdown, or PDF conversion. Those are not Office packages.
 ## CLI
 
 ```
+bl llm FILE INSTRUCTION
 blackline-llm FILE INSTRUCTION
 ```
 
@@ -58,15 +63,15 @@ blackline-llm FILE INSTRUCTION
 `INSTRUCTION` is the prompt. `@file` reads a file; `-` reads stdin.
 
 ```bash
-blackline-llm contract.docx "change thirty days to sixty days" \
+bl llm contract.docx "change thirty days to sixty days" \
     -o out.docx --author "Jane Doe"
 
-blackline-llm contract.docx "flag the indemnity clause" \
+bl llm contract.docx "flag the indemnity clause" \
     --dry-run --json --author Jane
 
-blackline-llm model.xlsx "set B2 to 42" --in-place --model llama3.2-3b
+bl llm model.xlsx "set B2 to 42" --in-place --model llama3.2-3b
 
-blackline-llm deck.pptx "set the title to Q3" -o out.pptx
+bl llm deck.pptx "set the title to Q3" -o out.pptx
 ```
 
 Exit codes match blackline: `0` success · `1` operation failed · `2` usage.

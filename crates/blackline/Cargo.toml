@@ -26,11 +26,23 @@ path = "src/bin/blackline.rs"
 name = "bl"
 path = "src/bin/bl.rs"
 
+[features]
+# Kalosm is opt-in so `cargo install blackline` stays lean. `bl llm` always
+# exists; without these features it prints the rebuild line and exits 2.
+#   cargo install blackline --features kalosm
+#   cargo install blackline --features kalosm,metal   # Apple Silicon
+#   cargo install blackline --features kalosm,cuda    # NVIDIA
+default = []
+kalosm = ["blackline-llm/kalosm"]
+metal = ["blackline-llm/metal"]
+cuda = ["blackline-llm/cuda"]
+
 [dependencies]
 blackline-core = { workspace = true }
 blackline-docx = { workspace = true }
 blackline-xlsx = { workspace = true }
 blackline-pptx = { workspace = true }
+blackline-llm = { workspace = true }
 clap = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }

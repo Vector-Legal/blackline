@@ -342,6 +342,7 @@ dependencies = [
  "assert_cmd",
  "blackline-core",
  "blackline-docx",
+ "blackline-llm",
  "blackline-pptx",
  "blackline-xlsx",
  "clap 4.6.6",

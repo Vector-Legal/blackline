@@ -4,7 +4,7 @@
 |----------|----------------|
 | [architecture.md](architecture.md) | Layers, XML/OPC primitives, edit ops, testing rules |
 | [cli.md](cli.md) | Full CLI command reference |
-| [llm.md](llm.md) | blackline-llm: local Kalosm frontend |
+| [llm.md](llm.md) | `bl llm`: local Kalosm frontend |
 | [releasing.md](releasing.md) | SemVer, `vX.Y.Z` tags, GitHub Releases, crates.io |
 | [going-public.md](going-public.md) | First public repo + first crates.io publish |
 

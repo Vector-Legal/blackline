@@ -240,7 +240,8 @@ those revisions first.
 
 `blackline-llm` is a sibling crate, not a layer inside the toolkit. It
 depends on the format façades and does not add models, prompts, or
-conversion to `blackline-core`.
+conversion to `blackline-core`. The same pipeline is wired as
+`bl llm` on the main CLI.
 
 ```
 prompt + numbered view  →  Kalosm (constrained Plan)  →  Docx::track / Xlsx::edit / Pptx::edit

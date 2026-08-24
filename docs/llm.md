@@ -1,18 +1,23 @@
-# blackline-llm
+# `bl llm`
 
 Natural-language frontend for blackline. A local Kalosm model emits ops;
 blackline applies them as native OOXML. The model never writes XML.
 
 ```
-blackline-llm FILE INSTRUCTION
+bl llm FILE INSTRUCTION
 ```
 
-Install (Kalosm is opt-in so the rest of the workspace stays lean):
+The standalone `blackline-llm` binary is the same pipeline, if you want
+that crate on its own.
+
+Kalosm is opt-in so a default `cargo install blackline` stays lean.
+`bl llm --help` always works; running a prompt without the feature
+prints the rebuild line.
 
 ```
-cargo install blackline-llm --features kalosm          # CPU, quantized
-cargo install blackline-llm --features kalosm,metal    # Apple Silicon
-cargo install blackline-llm --features kalosm,cuda     # NVIDIA
+cargo install blackline --features kalosm          # CPU, quantized
+cargo install blackline --features kalosm,metal    # Apple Silicon
+cargo install blackline --features kalosm,cuda     # NVIDIA
 ```
 
 ## Conventions
@@ -26,7 +31,7 @@ XML in a `.docx` / `.xlsx` / `.pptx` package.
 ## Flags
 
 ```
-blackline-llm FILE INSTRUCTION
+bl llm FILE INSTRUCTION
     -o, --output PATH
         --in-place
         --author NAME

@@ -1,9 +1,9 @@
-//! `blackline-llm FILE INSTRUCTION` — same conventions as `blackline`.
+//! Shared CLI for `blackline-llm FILE INSTRUCTION` and `bl llm …`.
 
 use std::path::PathBuf;
 use std::process::ExitCode;
 
-use clap::Parser;
+use clap::{Args, Parser};
 use serde::Serialize;
 
 use crate::apply::{self, ApplyOptions, ApplyReport};
@@ -12,23 +12,23 @@ use crate::model::{ModelId, DEFAULT_MODEL};
 use crate::plan::{Completer, Plan};
 use crate::view::DocumentView;
 
-/// Natural-language frontend for blackline.
-#[derive(Parser, Debug)]
-#[command(
-    name = "blackline-llm",
-    version,
-    about = "Local LLM that drives blackline: a prompt becomes native OOXML edits",
-    after_help = "The model never writes OOXML. It emits a small op list; blackline applies it.\n\
+/// One-line about text for `bl llm` and `blackline-llm`.
+pub const ABOUT: &str = "Local LLM that drives blackline: a prompt becomes native OOXML edits";
+
+/// Longer help shown after the flag list.
+pub const AFTER_HELP: &str = "The model never writes OOXML. It emits a small op list; blackline applies it.\n\
         DOCX ops become Word tracked changes (pass --author). XLSX and PPTX are silent edits.\n\n\
         Default model is quantized Phi-3.5 mini (Kalosm). Override with --model.\n\
         First run downloads the GGUF into the Kalosm cache.\n\n\
         Examples:\n  \
-        blackline-llm contract.docx \"change thirty days to sixty days\" -o out.docx --author \"Jane Doe\"\n  \
-        blackline-llm model.xlsx \"set B2 to 42\" --in-place --model llama3.2-3b\n  \
+        bl llm contract.docx \"change thirty days to sixty days\" -o out.docx --author \"Jane Doe\"\n  \
+        bl llm model.xlsx \"set B2 to 42\" --in-place --model llama3.2-3b\n  \
         blackline-llm deck.pptx \"set the title to Q3\" -o out.pptx --model ./phi.gguf\n  \
-        blackline-llm contract.docx \"flag the indemnity clause\" --dry-run --json --author Jane"
-)]
-pub struct Cli {
+        bl llm contract.docx \"flag the indemnity clause\" --dry-run --json --author Jane";
+
+/// Flags shared by `bl llm` and the standalone `blackline-llm` binary.
+#[derive(Args, Debug)]
+pub struct LlmArgs {
     /// DOCX / XLSX / PPTX file
     pub file: PathBuf,
     /// Natural-language instruction. `@path` reads a file; `-` reads stdin.
@@ -74,6 +74,20 @@ pub struct Cli {
     pub verbose: bool,
 }
 
+/// Standalone `blackline-llm` parser. `bl llm` uses [`LlmArgs`] directly.
+#[derive(Parser, Debug)]
+#[command(
+    name = "blackline-llm",
+    version,
+    about = ABOUT,
+    after_help = AFTER_HELP
+)]
+pub struct Cli {
+    /// Shared flags (`bl llm` uses these directly).
+    #[command(flatten)]
+    pub args: LlmArgs,
+}
+
 /// JSON document written by `--json`.
 #[derive(Debug, Serialize)]
 pub struct LlmReport {
@@ -92,13 +106,21 @@ pub struct LlmReport {
 
 /// Parse argv and run. Returns the process exit code.
 pub fn run() -> ExitCode {
-    let cli = Cli::parse();
-    match tokio::runtime::Builder::new_multi_thread()
+    exit_from(run_args(Cli::parse().args))
+}
+
+/// Run a parsed argument set. Both CLIs call this.
+pub fn run_args(args: LlmArgs) -> Result<(), LlmError> {
+    tokio::runtime::Builder::new_multi_thread()
         .enable_all()
         .build()
         .expect("tokio")
-        .block_on(run_cli(cli))
-    {
+        .block_on(run_cli(args))
+}
+
+/// Map a pipeline result to the shared 0 / 1 / 2 exit codes.
+pub fn exit_from(result: Result<(), LlmError>) -> ExitCode {
+    match result {
         Ok(()) => ExitCode::SUCCESS,
         Err(e) if e.is_usage() => {
             let msg = e.to_string();
@@ -113,7 +135,7 @@ pub fn run() -> ExitCode {
     }
 }
 
-pub(crate) async fn run_cli(cli: Cli) -> Result<(), LlmError> {
+async fn run_cli(cli: LlmArgs) -> Result<(), LlmError> {
     let instruction = read_instruction(&cli.instruction)?;
     if instruction.trim().is_empty() {
         return Err(LlmError::usage("instruction is empty".to_string()));
@@ -178,10 +200,11 @@ async fn complete_with_model(
     {
         let _ = (id, view, instruction, verbose);
         Err(LlmError::usage(
-            "blackline-llm was built without Kalosm. Install with:\n  \
-             cargo install blackline-llm --features kalosm\n  \
-             cargo install blackline-llm --features kalosm,metal   # Apple Silicon\n  \
-             cargo install blackline-llm --features kalosm,cuda    # NVIDIA"
+            "this binary was built without Kalosm. Rebuild with --features kalosm:\n  \
+             cargo install blackline --features kalosm\n  \
+             cargo install blackline --features kalosm,metal   # Apple Silicon\n  \
+             cargo install blackline --features kalosm,cuda    # NVIDIA\n  \
+             cargo install blackline-llm --features kalosm     # standalone binary"
                 .to_string(),
         ))
     }

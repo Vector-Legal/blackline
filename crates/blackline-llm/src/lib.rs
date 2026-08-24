@@ -16,7 +16,9 @@ mod plan;
 mod view;
 
 pub use apply::{apply, ApplyOptions, ApplyReport, OpStat};
-pub use cli::{run, run_with_completer, Cli, LlmReport};
+pub use cli::{
+    exit_from, run, run_args, run_with_completer, Cli, LlmArgs, LlmReport, ABOUT, AFTER_HELP,
+};
 pub use error::LlmError;
 pub use format::Format;
 pub use model::{ModelId, DEFAULT_MODEL};

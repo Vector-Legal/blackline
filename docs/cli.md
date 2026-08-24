@@ -4,6 +4,7 @@
 
 ```
 blackline <format> <verb> [args]
+blackline llm FILE INSTRUCTION
 blackline unpack FILE DIR
 blackline pack DIR FILE
 blackline fixtures DIR
@@ -183,11 +184,14 @@ blackline fixtures DIR
 
 ## Natural language
 
-`blackline-llm` is a separate binary. See [llm.md](llm.md).
+`bl llm` is a subcommand on this CLI. See [llm.md](llm.md). The
+standalone `blackline-llm` binary is the same pipeline.
 
 ```
-blackline-llm FILE INSTRUCTION -o OUT --author NAME
+blackline llm FILE INSTRUCTION -o OUT --author NAME
 ```
 
 The model emits blackline ops; this CLI applies them. Default model is
-quantized Phi-3.5 mini (`--model` overrides).
+quantized Phi-3.5 mini (`--model` overrides). `cargo install blackline`
+stays lean; rebuild with `--features kalosm` (plus `metal` or `cuda`)
+so the model runtime is present.

@@ -1,9 +1,10 @@
 //! `blackline` — an agent-first CLI for DOCX / XLSX / PPTX.
 //!
-//! Canonical grammar: `blackline <format> <verb> [args]` plus `unpack`,
-//! `pack`, and `xml`.
+//! Canonical grammar: `blackline <format> <verb> [args]` plus `llm`,
+//! `unpack`, `pack`, and `xml`.
 
 mod cmd_docx;
+mod cmd_llm;
 mod cmd_pptx;
 mod cmd_track;
 mod cmd_xlsx;
@@ -40,6 +41,8 @@ use clap::{Parser, Subcommand};
         blackline track changes FILE [--author NAME]\n  \
         blackline track comments FILE [--author NAME]\n  \
         blackline track settle FILE --accept|--reject [--author NAME] -o OUT\n\n\
+        Natural language (local Kalosm model; rebuild with --features kalosm):\n  \
+        blackline llm FILE INSTRUCTION -o OUT --author NAME\n\n\
         Generate a synthetic test corpus:\n  \
         blackline fixtures DIR"
 )]
@@ -75,6 +78,9 @@ enum Commands {
         #[command(subcommand)]
         cmd: cmd_track::TrackCmd,
     },
+    /// Local LLM: a prompt becomes native OOXML edits
+    #[command(about = blackline_llm::ABOUT, after_help = blackline_llm::AFTER_HELP)]
+    Llm(blackline_llm::LlmArgs),
     /// Unpack an OOXML package into pretty-printed XML
     Unpack {
         /// Package
@@ -105,6 +111,7 @@ pub fn run() -> ExitCode {
         Commands::Pptx { cmd } => cmd_pptx::run(cmd),
         Commands::Xml { cmd } => cmd_xml::run(cmd),
         Commands::Track { cmd } => cmd_track::run(cmd),
+        Commands::Llm(args) => cmd_llm::run(args),
         Commands::Unpack {
             input_file,
             output_directory,

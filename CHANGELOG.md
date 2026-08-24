@@ -10,11 +10,13 @@ Versioning follows [SemVer](https://semver.org) as described in
 
 ### Added
 
-- `blackline-llm`: a local Kalosm frontend that turns a natural-language
-  prompt into blackline ops. Default model is quantized Phi-3.5 mini;
-  `--model` selects a preset or a GGUF. DOCX ops apply as Word tracked
-  changes. PDF / Markdown are refused — the toolkit still does not
-  convert. Install with `--features kalosm` (plus `metal` or `cuda`).
+- `bl llm FILE INSTRUCTION`: a local Kalosm frontend that turns a
+  natural-language prompt into blackline ops. Same pipeline as the
+  standalone `blackline-llm` binary. Default model is quantized
+  Phi-3.5 mini; `--model` selects a preset or a GGUF. DOCX ops apply
+  as Word tracked changes. PDF / Markdown are refused — the toolkit
+  still does not convert. `cargo install blackline` stays lean;
+  rebuild with `--features kalosm` (plus `metal` or `cuda`).
 
 ## [0.3.2] — 2026-08-23
 
