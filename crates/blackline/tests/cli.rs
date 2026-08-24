@@ -695,6 +695,48 @@ fn ai_refuses_pdf_and_requires_author() {
 }
 
 #[test]
+fn ai_refuses_markdown_and_unknown_model() {
+    let dir = fixtures();
+    let md = {
+        let p = dir.path().join("notes.md");
+        std::fs::write(&p, "# Hi\n").unwrap();
+        p.display().to_string()
+    };
+    bl().args(["ai", &md, "edit this", "--dry-run"])
+        .assert()
+        .failure()
+        .code(2)
+        .stderr(predicate::str::contains("does not convert"));
+
+    let file = path(&dir, "simple.docx");
+    bl().args([
+        "ai",
+        &file,
+        "change hello to hi",
+        "--dry-run",
+        "--author",
+        "Jane",
+        "--model",
+        "gpt-4",
+    ])
+    .assert()
+    .failure()
+    .code(2)
+    .stderr(predicate::str::contains("phi-3.5"));
+}
+
+#[test]
+fn ai_missing_output_is_usage() {
+    let dir = fixtures();
+    let file = path(&dir, "simple.docx");
+    bl().args(["ai", &file, "change hello to hi", "--author", "Jane"])
+        .assert()
+        .failure()
+        .code(2)
+        .stderr(predicate::str::contains("-o/--output"));
+}
+
+#[test]
 fn ai_without_kalosm_explains_rebuild() {
     if cfg!(feature = "kalosm") {
         return;

@@ -2,7 +2,7 @@ name: Publish release
 
 # Step 2 of 2. Fires when a version bump lands on `main` -- i.e. when the
 # pull request opened by `release-prepare.yml` is merged. Tags, publishes
-# all six crates, and cuts the GitHub Release.
+# all five crates, and cuts the GitHub Release.
 #
 # Detection is by comparing the workspace version against the previous
 # commit rather than by parsing the commit message, so a hand-edited bump
@@ -131,7 +131,7 @@ jobs:
           # registry. `cargo publish` waits for the index, so no sleeps.
           # Not atomic -- a failure part-way leaves earlier crates live.
           for p in blackline-core blackline-docx blackline-xlsx \
-                   blackline-pptx blackline-ai blackline; do
+                   blackline-pptx blackline; do
             echo "::group::publish $p"
             cargo publish -p "$p"
             echo "::endgroup::"

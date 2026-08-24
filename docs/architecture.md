@@ -238,10 +238,9 @@ those revisions first.
 
 ## AI sector
 
-`blackline-ai` is a sibling crate, not a layer inside the toolkit. It
-depends on the format façades and does not add models, prompts, or
-conversion to `blackline-core`. The same pipeline is wired as
-`bl ai` on the main CLI.
+`bl ai` lives in the CLI crate, not a format crate. It depends on the
+format façades and does not add models, prompts, or conversion to
+`blackline-core`.
 
 ```
 prompt + numbered view  →  Kalosm (constrained Plan)  →  Docx::track / Xlsx::edit / Pptx::edit

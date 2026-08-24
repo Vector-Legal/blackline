@@ -2,7 +2,7 @@
 
 use std::path::{Path, PathBuf};
 
-use crate::error::AiError;
+use super::error::AiError;
 
 /// Default: Kalosm's quantized Phi-3.5 mini (reasoning, fits a 16 GB MacBook).
 pub const DEFAULT_MODEL: &str = "phi-3.5";
@@ -98,7 +98,7 @@ impl ModelId {
     }
 }
 
-/// Load the model and wrap it as a [`crate::plan::Completer`].
+/// Load the model and wrap it as a [`super::plan::Completer`].
 #[cfg(feature = "kalosm")]
 pub async fn load(id: &ModelId, verbose: bool) -> Result<KalosmCompleter, AiError> {
     use kalosm::language::{FileSource, Llama, LlamaSource};
@@ -127,20 +127,20 @@ pub async fn load(id: &ModelId, verbose: bool) -> Result<KalosmCompleter, AiErro
     Ok(KalosmCompleter { llama })
 }
 
-/// Kalosm-backed completer: constrained generation into [`crate::plan::Plan`].
+/// Kalosm-backed completer: constrained generation into [`super::plan::Plan`].
 #[cfg(feature = "kalosm")]
 pub struct KalosmCompleter {
     llama: kalosm::language::Llama,
 }
 
 #[cfg(feature = "kalosm")]
-impl crate::plan::Completer for KalosmCompleter {
+impl super::plan::Completer for KalosmCompleter {
     async fn complete(
         &self,
-        view: &crate::view::DocumentView,
+        view: &super::view::DocumentView,
         instruction: &str,
-    ) -> Result<crate::plan::Plan, AiError> {
-        use crate::plan::{system_prompt, user_prompt, Plan};
+    ) -> Result<super::plan::Plan, AiError> {
+        use super::plan::{system_prompt, user_prompt, Plan};
         use kalosm::language::ChatModelExt;
         use std::sync::Arc;
 
@@ -149,9 +149,7 @@ impl crate::plan::Completer for KalosmCompleter {
             .task(system_prompt(view.format))
             .with_constraints(Arc::new(Plan::new_parser()));
         let user = user_prompt(view, instruction);
-        task(&user)
-            .await
-            .map_err(|e| AiError::Model(e.to_string()))
+        task(&user).await.map_err(|e| AiError::Model(e.to_string()))
     }
 }
 

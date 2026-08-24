@@ -6,8 +6,8 @@ use blackline_docx::Docx;
 use blackline_pptx::Pptx;
 use blackline_xlsx::Xlsx;
 
-use crate::error::AiError;
-use crate::format::Format;
+use super::error::AiError;
+use super::format::Format;
 
 /// Soft cap on characters stuffed into the prompt. `--from` / `--to` is the
 /// way to window a long file; this only stops a 200-page dump.

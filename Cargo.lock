@@ -340,23 +340,6 @@ name = "blackline"
 version = "0.3.2"
 dependencies = [
  "assert_cmd",
- "blackline-ai",
- "blackline-core",
- "blackline-docx",
- "blackline-pptx",
- "blackline-xlsx",
- "clap 4.6.6",
- "predicates",
- "serde",
- "serde_json",
- "tempfile",
-]
-
-[[package]]
-name = "blackline-ai"
-version = "0.3.2"
-dependencies = [
- "assert_cmd",
  "blackline-core",
  "blackline-docx",
  "blackline-pptx",

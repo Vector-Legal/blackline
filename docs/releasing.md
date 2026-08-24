@@ -3,7 +3,7 @@
 blackline is a Cargo workspace with a **single shared version**
 (`workspace.package.version` in the root `Cargo.toml`). All crates
 (`blackline-core`, `blackline-docx`, `blackline-xlsx`, `blackline-pptx`,
-`blackline-ai`, `blackline`) ship together.
+`blackline`) ship together.
 
 ## SemVer
 
@@ -38,7 +38,7 @@ reviewable diff.
 (or type an explicit version).
 
 It refuses to run off `main`, refuses an empty `[Unreleased]`, bumps the
-version across all six crates and the `[workspace.dependencies]` entries,
+version across all five crates and the `[workspace.dependencies]` entries,
 rolls `[Unreleased]` into `[X.Y.Z] — YYYY-MM-DD`, and opens a
 `release/X.Y.Z` pull request. Nothing is tagged or published yet.
 
@@ -47,7 +47,7 @@ rolls `[Unreleased]` into `[X.Y.Z] — YYYY-MM-DD`, and opens a
 Review the diff and merge. That is the point of no return.
 
 `release-publish.yml` notices the version changed, re-runs the full
-verification, packages all six crates, tags `vX.Y.Z`, publishes bottom-up
+verification, packages all five crates, tags `vX.Y.Z`, publishes bottom-up
 over OIDC, and cuts the GitHub Release. Publishing waits on the `crates-io`
 environment, which requires an approval — so a merge alone does not ship.
 
@@ -66,7 +66,7 @@ cargo release patch                  # show what would happen
 cargo release patch --execute        # bump, tag, push, publish
 ```
 
-`shared-version` keeps all six crates on one version, `consolidate-commits`
+`shared-version` keeps all five crates on one version, `consolidate-commits`
 puts the bump in one commit, and `tag-name = "v{{version}}"` gives one tag for
 the workspace instead of cargo-release's per-crate default of
 `blackline-core-v0.3.1`.
@@ -86,7 +86,7 @@ cargo release patch --execute --no-publish --no-push --no-tag
 
 ### Things worth knowing
 
-**Publishing six crates is not atomic.** If the third upload fails, the first
+**Publishing five crates is not atomic.** If the third upload fails, the first
 two are live and permanent — `cargo yank` hides a version but never deletes
 it. Recovery is to fix forward and cut the next patch. Hence the full test
 suite and a package of every crate before anything uploads.

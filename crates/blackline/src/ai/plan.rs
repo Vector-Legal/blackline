@@ -3,8 +3,8 @@
 
 use serde::{Deserialize, Serialize};
 
-use crate::error::AiError;
-use crate::format::Format;
+use super::error::AiError;
+use super::format::Format;
 
 /// A batch of ops. Constrained generation (Kalosm `Parse`) targets this type
 /// so the model cannot drift into free prose.
@@ -176,7 +176,7 @@ pub trait Completer: Send + Sync {
     /// Produce ops. Must not apply them.
     fn complete(
         &self,
-        view: &crate::view::DocumentView,
+        view: &super::view::DocumentView,
         instruction: &str,
     ) -> impl std::future::Future<Output = Result<Plan, AiError>> + Send;
 }
@@ -198,7 +198,7 @@ impl StaticCompleter {
 impl Completer for StaticCompleter {
     async fn complete(
         &self,
-        _view: &crate::view::DocumentView,
+        _view: &super::view::DocumentView,
         _instruction: &str,
     ) -> Result<Plan, AiError> {
         Ok(self.plan.clone())
@@ -229,7 +229,7 @@ pub fn system_prompt(format: Format) -> &'static str {
 }
 
 /// User message: view + instruction.
-pub fn user_prompt(view: &crate::view::DocumentView, instruction: &str) -> String {
+pub fn user_prompt(view: &super::view::DocumentView, instruction: &str) -> String {
     format!("{}\n# Instruction\n{}", view.render(), instruction.trim())
 }
 
@@ -254,11 +254,11 @@ mod tests {
 
     #[test]
     fn prompts_name_the_format() {
-        use crate::format::Format;
+        use crate::ai::format::Format;
         assert!(system_prompt(Format::Docx).contains("tracked"));
         assert!(system_prompt(Format::Xlsx).contains("set_cell"));
         assert!(system_prompt(Format::Pptx).contains("set_text"));
-        let view = crate::view::DocumentView {
+        let view = crate::ai::view::DocumentView {
             format: Format::Docx,
             lines: vec!["1| hello".into()],
             truncated: false,

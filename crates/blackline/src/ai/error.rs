@@ -1,4 +1,4 @@
-//! Errors for the blackline-ai pipeline.
+//! Errors for the `bl ai` pipeline.
 
 use std::io;
 use std::path::PathBuf;

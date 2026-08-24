@@ -7,9 +7,9 @@ use blackline_pptx::{EditOp as PptxEditOp, Pptx};
 use blackline_xlsx::{EditOp as XlsxEditOp, Xlsx};
 use serde::Serialize;
 
-use crate::error::AiError;
-use crate::format::Format;
-use crate::plan::{Op, Plan};
+use super::error::AiError;
+use super::format::Format;
+use super::plan::{Op, Plan};
 
 /// How a [`Plan`] is applied.
 #[derive(Debug, Clone)]
@@ -106,9 +106,7 @@ fn apply_docx(
         if opts.dry_run {
             builder = builder.dry_run();
         }
-        let outcome = builder
-            .apply()
-            .map_err(|e| AiError::Apply(e.to_string()))?;
+        let outcome = builder.apply().map_err(|e| AiError::Apply(e.to_string()))?;
         let report = map_docx_edit(&outcome.report);
         if let (Some(path), Some(edited)) = (output, outcome.document) {
             atomic_save(path, |p| {
@@ -137,9 +135,7 @@ fn apply_docx(
     if opts.dry_run {
         builder = builder.dry_run();
     }
-    let outcome = builder
-        .apply()
-        .map_err(|e| AiError::Apply(e.to_string()))?;
+    let outcome = builder.apply().map_err(|e| AiError::Apply(e.to_string()))?;
     let report = map_track(&outcome.report);
     if let (Some(path), Some(edited)) = (output, outcome.document) {
         atomic_save(path, |p| {
@@ -404,10 +400,10 @@ fn require_index(index: u32) -> Result<usize, AiError> {
     Ok(index as usize)
 }
 
-fn paragraph_position(position: crate::plan::Position) -> &'static str {
+fn paragraph_position(position: super::plan::Position) -> &'static str {
     match position {
-        crate::plan::Position::Before | crate::plan::Position::Start => "before",
-        crate::plan::Position::After | crate::plan::Position::End => "after",
+        super::plan::Position::Before | super::plan::Position::Start => "before",
+        super::plan::Position::After | super::plan::Position::End => "after",
     }
 }
 

@@ -1,18 +1,17 @@
-//! Shared CLI for `blackline-ai FILE INSTRUCTION` and `bl ai …`.
+//! `bl ai FILE INSTRUCTION` — a prompt becomes native OOXML edits.
 
 use std::path::PathBuf;
-use std::process::ExitCode;
 
-use clap::{Args, Parser};
+use clap::Args;
 use serde::Serialize;
 
-use crate::apply::{self, ApplyOptions, ApplyReport};
-use crate::error::AiError;
-use crate::model::{ModelId, DEFAULT_MODEL};
-use crate::plan::{Completer, Plan};
-use crate::view::DocumentView;
+use super::apply::{self, ApplyOptions, ApplyReport};
+use super::error::AiError;
+use super::model::{ModelId, DEFAULT_MODEL};
+use super::plan::{Completer, Plan};
+use super::view::DocumentView;
 
-/// One-line about text for `bl ai` and `blackline-ai`.
+/// One-line about text for `bl ai`.
 pub const ABOUT: &str = "Local AI that drives blackline: a prompt becomes native OOXML edits";
 
 /// Longer help shown after the flag list.
@@ -23,10 +22,10 @@ pub const AFTER_HELP: &str = "The model never writes OOXML. It emits a small op 
         Examples:\n  \
         bl ai contract.docx \"change thirty days to sixty days\" -o out.docx --author \"Jane Doe\"\n  \
         bl ai model.xlsx \"set B2 to 42\" --in-place --model llama3.2-3b\n  \
-        blackline-ai deck.pptx \"set the title to Q3\" -o out.pptx --model ./phi.gguf\n  \
+        bl ai deck.pptx \"set the title to Q3\" -o out.pptx --model ./phi.gguf\n  \
         bl ai contract.docx \"flag the indemnity clause\" --dry-run --json --author Jane";
 
-/// Flags shared by `bl ai` and the standalone `blackline-ai` binary.
+/// Flags for `bl ai`.
 #[derive(Args, Debug)]
 pub struct AiArgs {
     /// DOCX / XLSX / PPTX file
@@ -74,25 +73,11 @@ pub struct AiArgs {
     pub verbose: bool,
 }
 
-/// Standalone `blackline-ai` parser. `bl ai` uses [`AiArgs`] directly.
-#[derive(Parser, Debug)]
-#[command(
-    name = "blackline-ai",
-    version,
-    about = ABOUT,
-    after_help = AFTER_HELP
-)]
-pub struct Cli {
-    /// Shared flags (`bl ai` uses these directly).
-    #[command(flatten)]
-    pub args: AiArgs,
-}
-
 /// JSON document written by `--json`.
 #[derive(Debug, Serialize)]
 pub struct AiReport {
     /// `docx` / `xlsx` / `pptx`.
-    pub format: crate::format::Format,
+    pub format: super::format::Format,
     /// Preset name or GGUF path.
     pub model: String,
     /// Ops the model produced.
@@ -104,35 +89,13 @@ pub struct AiReport {
     pub output: Option<String>,
 }
 
-/// Parse argv and run. Returns the process exit code.
-pub fn run() -> ExitCode {
-    exit_from(run_args(Cli::parse().args))
-}
-
-/// Run a parsed argument set. Both CLIs call this.
+/// Run a parsed `bl ai` argument set.
 pub fn run_args(args: AiArgs) -> Result<(), AiError> {
     tokio::runtime::Builder::new_multi_thread()
         .enable_all()
         .build()
         .expect("tokio")
         .block_on(run_cli(args))
-}
-
-/// Map a pipeline result to the shared 0 / 1 / 2 exit codes.
-pub fn exit_from(result: Result<(), AiError>) -> ExitCode {
-    match result {
-        Ok(()) => ExitCode::SUCCESS,
-        Err(e) if e.is_usage() => {
-            let msg = e.to_string();
-            let msg = msg.strip_prefix("usage: ").unwrap_or(&msg);
-            eprintln!("{msg}");
-            ExitCode::from(2)
-        }
-        Err(e) => {
-            eprintln!("{e}");
-            ExitCode::from(1)
-        }
-    }
 }
 
 async fn run_cli(cli: AiArgs) -> Result<(), AiError> {
@@ -148,7 +111,7 @@ async fn run_cli(cli: AiArgs) -> Result<(), AiError> {
 
     let view = DocumentView::open(&cli.file, cli.from, cli.to, cli.sheet.as_deref())?;
 
-    if view.format == crate::format::Format::Docx && !cli.no_track && author.is_none() {
+    if view.format == super::format::Format::Docx && !cli.no_track && author.is_none() {
         return Err(AiError::usage(
             "author required: tracked changes and comments must carry an explicit author \
              (pass --author or set BLACKLINE_AUTHOR)"
@@ -193,7 +156,7 @@ async fn complete_with_model(
 ) -> Result<Plan, AiError> {
     #[cfg(feature = "kalosm")]
     {
-        let completer = crate::model::load(id, verbose).await?;
+        let completer = super::model::load(id, verbose).await?;
         return completer.complete(view, instruction).await;
     }
     #[cfg(not(feature = "kalosm"))]
@@ -203,8 +166,7 @@ async fn complete_with_model(
             "this binary was built without Kalosm. Rebuild with --features kalosm:\n  \
              cargo install blackline --features kalosm\n  \
              cargo install blackline --features kalosm,metal   # Apple Silicon\n  \
-             cargo install blackline --features kalosm,cuda    # NVIDIA\n  \
-             cargo install blackline-ai --features kalosm     # standalone binary"
+             cargo install blackline --features kalosm,cuda    # NVIDIA"
                 .to_string(),
         ))
     }

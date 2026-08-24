@@ -1,10 +1,10 @@
-//! `blackline ai FILE INSTRUCTION` — same pipeline as `blackline-ai`.
+//! `blackline ai FILE INSTRUCTION`.
 
-use blackline_ai::AiArgs;
+use crate::ai::{run_args, AiArgs};
 
-/// Run the shared AI pipeline and map its errors onto this CLI's exit codes.
+/// Run the AI pipeline and map its errors onto this CLI's exit codes.
 pub fn run(args: AiArgs) -> Result<i32, String> {
-    match blackline_ai::run_args(args) {
+    match run_args(args) {
         Ok(()) => Ok(0),
         Err(e) if e.is_usage() => {
             let msg = e.to_string();

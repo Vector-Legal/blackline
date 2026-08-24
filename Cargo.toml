@@ -5,7 +5,6 @@ members = [
     "crates/blackline-docx",
     "crates/blackline-xlsx",
     "crates/blackline-pptx",
-    "crates/blackline-ai",
     "crates/blackline",
 ]
 
@@ -60,7 +59,6 @@ blackline-core = { path = "crates/blackline-core", version = "0.3.2" }
 blackline-docx = { path = "crates/blackline-docx", version = "0.3.2" }
 blackline-xlsx = { path = "crates/blackline-xlsx", version = "0.3.2" }
 blackline-pptx = { path = "crates/blackline-pptx", version = "0.3.2" }
-blackline-ai = { path = "crates/blackline-ai", version = "0.3.2" }
 
 clap = { version = "4", features = ["derive"] }
 quick-xml = "0.41"

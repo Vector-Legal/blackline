@@ -102,7 +102,7 @@ jobs:
             --body "$(printf '%s\n' \
               "Prepared by the \`Prepare release\` workflow." \
               "" \
-              "Merging this tags \`v$VERSION\`, publishes all six crates to" \
+              "Merging this tags \`v$VERSION\`, publishes all five crates to" \
               "crates.io, and cuts the GitHub Release. Publishing pauses for" \
               "approval on the \`crates-io\` environment." \
               "" \

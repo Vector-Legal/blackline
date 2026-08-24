@@ -61,8 +61,7 @@ crates/blackline-core/    OPC package, XML DOM, TreeOp, formula, patch, update
 crates/blackline-docx/    WordprocessingML (including track / redline)
 crates/blackline-xlsx/    SpreadsheetML
 crates/blackline-pptx/    PresentationML
-crates/blackline-ai/      local AI frontend (optional `--features kalosm`)
-crates/blackline/         blackline / bl binaries (`bl ai` is the same pipeline)
+crates/blackline/         blackline / bl binaries (including `bl ai`)
 docs/                    architecture, CLI, ai, releasing, going public
 ```
 
@@ -113,7 +112,7 @@ other third-party Office files.
 ## Versioning and releases
 
 **Never change `workspace.package.version` in a pull request.** CI rejects
-it — this is enforced, not a convention. All six crates share one version
+it — this is enforced, not a convention. All five crates share one version
 and move together, only at release.
 
 Instead, note user-visible changes under `## [Unreleased]` in

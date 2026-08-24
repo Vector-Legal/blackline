@@ -29,8 +29,7 @@ on it.
 | [`blackline-docx`](crates/blackline-docx) | WordprocessingML: view, search, edit, redline, track, comments, create, check |
 | [`blackline-xlsx`](crates/blackline-xlsx) | SpreadsheetML: sheets, cells, shared strings, create, edit, check |
 | [`blackline-pptx`](crates/blackline-pptx) | PresentationML: slides, text frames, create, edit, check |
-| [`blackline-ai`](crates/blackline-ai) | Local AI frontend: a prompt becomes blackline ops |
-| [`blackline`](crates/blackline) | Agent-first noun-verb CLI (`blackline` / `bl`) |
+| [`blackline`](crates/blackline) | Agent-first noun-verb CLI (`blackline` / `bl`), including `bl ai` |
 
 Docs: [architecture](docs/architecture.md) · [CLI reference](docs/cli.md) ·
 [ai](docs/ai.md) ·
@@ -218,8 +217,8 @@ Edits are **strict** unless `--lenient` is passed. `--dry-run` validates without
 `bl ai` is a subcommand on this CLI. A local Kalosm model emits the op
 list; blackline applies it. Default model is quantized Phi-3.5 mini.
 `cargo install blackline` stays lean; rebuild with `--features kalosm`
-(plus `metal` or `cuda`) so the model runtime is present. The standalone
-`blackline-ai` binary is the same pipeline. See [docs/ai.md](docs/ai.md).
+(plus `metal` or `cuda`) so the model runtime is present.
+See [docs/ai.md](docs/ai.md).
 
 ```bash
 bl ai contract.docx "change thirty days to sixty days" \
@@ -313,8 +312,7 @@ crates/
 ├── blackline-docx/    # document façade, edits, revisions, track, comments
 ├── blackline-xlsx/    # workbook, cells, shared strings
 ├── blackline-pptx/    # presentation, slides
-├── blackline-ai/      # local AI frontend (prompt → blackline ops)
-└── blackline/         # bins blackline + bl
+└── blackline/         # bins blackline + bl, including `bl ai`
 docs/                  # architecture, CLI, ai, releasing, going public
 ```
 

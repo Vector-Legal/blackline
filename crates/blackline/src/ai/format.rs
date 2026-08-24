@@ -5,7 +5,7 @@ use std::path::Path;
 
 use serde::Serialize;
 
-use crate::error::AiError;
+use super::error::AiError;
 
 /// The three packages blackline can edit.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
@@ -33,7 +33,7 @@ impl Format {
             "xlsx" => Ok(Self::Xlsx),
             "pptx" => Ok(Self::Pptx),
             "pdf" | "md" | "markdown" | "html" | "htm" | "txt" => Err(AiError::usage(format!(
-                "blackline-ai reads native Office files (.docx .xlsx .pptx). \
+                "bl ai reads native Office files (.docx .xlsx .pptx). \
                  It does not convert .{ext}. Run blackline on the OOXML package."
             ))),
             "" => Err(AiError::usage(

@@ -3,6 +3,7 @@
 //! Canonical grammar: `blackline <format> <verb> [args]` plus `ai`,
 //! `unpack`, `pack`, and `xml`.
 
+mod ai;
 mod cmd_ai;
 mod cmd_docx;
 mod cmd_pptx;
@@ -79,8 +80,8 @@ enum Commands {
         cmd: cmd_track::TrackCmd,
     },
     /// Local AI: a prompt becomes native OOXML edits
-    #[command(about = blackline_ai::ABOUT, after_help = blackline_ai::AFTER_HELP)]
-    Ai(blackline_ai::AiArgs),
+    #[command(about = ai::ABOUT, after_help = ai::AFTER_HELP)]
+    Ai(ai::AiArgs),
     /// Unpack an OOXML package into pretty-printed XML
     Unpack {
         /// Package
