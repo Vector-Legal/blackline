@@ -1,0 +1,49 @@
+[package]
+name = "blackline-llm"
+description = "Local LLM frontend for blackline: natural-language prompts become native OOXML edits"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+authors.workspace = true
+repository.workspace = true
+homepage.workspace = true
+documentation = "https://docs.rs/blackline-llm"
+readme = "README.md"
+keywords = ["cli", "llm", "docx", "ooxml", "kalosm"]
+categories = ["command-line-utilities", "text-processing"]
+
+[features]
+# Kalosm is optional so `cargo test --workspace` does not compile Candle.
+# A working binary needs one of these:
+#   cargo install blackline-llm --features kalosm
+#   cargo install blackline-llm --features kalosm,metal   # Apple Silicon
+#   cargo install blackline-llm --features kalosm,cuda    # NVIDIA
+default = []
+kalosm = ["dep:kalosm"]
+metal = ["kalosm", "kalosm/metal"]
+cuda = ["kalosm", "kalosm/cuda"]
+
+[dependencies]
+blackline-core = { workspace = true }
+blackline-docx = { workspace = true }
+blackline-xlsx = { workspace = true }
+blackline-pptx = { workspace = true }
+clap = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+thiserror = { workspace = true }
+tokio = { version = "1", features = ["rt-multi-thread", "macros"] }
+kalosm = { version = "0.4", default-features = false, features = ["language"], optional = true }
+
+[dev-dependencies]
+assert_cmd = { workspace = true }
+predicates = { workspace = true }
+tempfile = { workspace = true }
+
+[[bin]]
+name = "blackline-llm"
+path = "src/bin/blackline-llm.rs"
+
+[lints]
+workspace = true

@@ -7,7 +7,7 @@
 # `## [Unreleased]` in CHANGELOG.md, and a release turns that section into
 # a version. See docs/releasing.md.
 
-# All five crates ship together under one version, in one commit, behind
+# All crates ship together under one version, in one commit, behind
 # one tag -- rather than cargo-release's per-crate default of
 # `blackline-core-v0.3.1`, `blackline-docx-v0.3.1`, and so on.
 shared-version = true

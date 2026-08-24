@@ -3,6 +3,9 @@
 
 [graph]
 all-features = true
+# Kalosm / Candle pull licences and crates the rest of the workspace does
+# not ship. blackline-llm enables them only behind `--features kalosm`.
+exclude = ["blackline-llm"]
 
 [advisories]
 # Fail on any dependency with a filed RUSTSEC advisory.

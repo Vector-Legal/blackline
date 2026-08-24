@@ -236,6 +236,24 @@ those revisions first.
 
 ---
 
+## LLM sector
+
+`blackline-llm` is a sibling crate, not a layer inside the toolkit. It
+depends on the format façades and does not add models, prompts, or
+conversion to `blackline-core`.
+
+```
+prompt + numbered view  →  Kalosm (constrained Plan)  →  Docx::track / Xlsx::edit / Pptx::edit
+```
+
+`Completer` is the only extra type. Tests inject a canned plan so CI
+never downloads a GGUF. Default model is quantized Phi-3.5 mini;
+`--model` overrides. PDF and Markdown stay out of scope.
+
+See [llm.md](llm.md).
+
+---
+
 ## Historical notes (v3 rewrite)
 
 Earlier versions of this toolkit were coupled to a legal-drafting

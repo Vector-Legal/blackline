@@ -29,15 +29,18 @@ on it.
 | [`blackline-docx`](crates/blackline-docx) | WordprocessingML: view, search, edit, redline, track, comments, create, check |
 | [`blackline-xlsx`](crates/blackline-xlsx) | SpreadsheetML: sheets, cells, shared strings, create, edit, check |
 | [`blackline-pptx`](crates/blackline-pptx) | PresentationML: slides, text frames, create, edit, check |
+| [`blackline-llm`](crates/blackline-llm) | Local Kalosm frontend: a prompt becomes blackline ops |
 | [`blackline`](crates/blackline) | Agent-first noun-verb CLI (`blackline` / `bl`) |
 
 Docs: [architecture](docs/architecture.md) · [CLI reference](docs/cli.md) ·
+[llm](docs/llm.md) ·
 [releasing](docs/releasing.md) · [going public](docs/going-public.md) ·
 [changelog](CHANGELOG.md)
 
 ```bash
 cargo install blackline              # binaries: blackline, bl
 cargo add blackline-docx            # or blackline-xlsx / blackline-pptx
+cargo install blackline-llm --features kalosm   # local LLM frontend
 ```
 
 ## Use it from a coding agent
@@ -112,6 +115,12 @@ Need something the verbs do not cover? Drop to the XML:
 `bl fixtures ./corpus` writes sample DOCX/XLSX/PPTX files to experiment on
 without needing real documents. Run `bl <format> --help` for the full verb
 list, or see docs/cli.md.
+
+Natural language (local LLM, separate binary):
+
+    cargo install blackline-llm --features kalosm
+    blackline-llm contract.docx "change thirty days to sixty days" \
+        -o revised.docx --author "Jane Doe"
 ````
 
 </details>
@@ -198,6 +207,17 @@ bl fixtures ./corpus
 Edits are **strict** unless `--lenient` is passed. `--dry-run` validates without writing.
 
 `--granularity` on `docx edit --track` and `docx redline`: `char` · `word` (default) · `sentence`.
+
+### Natural language
+
+`blackline-llm` is a separate binary. A local Kalosm model emits the op
+list; blackline applies it. Default model is quantized Phi-3.5 mini.
+See [docs/llm.md](docs/llm.md).
+
+```bash
+blackline-llm contract.docx "change thirty days to sixty days" \
+    -o revised.docx --author "Jane Doe"
+```
 
 ## Library
 
@@ -286,8 +306,9 @@ crates/
 ├── blackline-docx/    # document façade, edits, revisions, track, comments
 ├── blackline-xlsx/    # workbook, cells, shared strings
 ├── blackline-pptx/    # presentation, slides
+├── blackline-llm/     # local Kalosm frontend (prompt → blackline ops)
 └── blackline/         # bins blackline + bl
-docs/                  # architecture, CLI, releasing, going public
+docs/                  # architecture, CLI, llm, releasing, going public
 ```
 
 ## License

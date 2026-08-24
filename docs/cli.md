@@ -180,3 +180,14 @@ blackline fixtures DIR
 
 `unpack` pretty-prints XML parts. `pack` condenses them back into a
 `.docx` / `.xlsx` / `.pptx`. `fixtures` writes the synthetic test corpus.
+
+## Natural language
+
+`blackline-llm` is a separate binary. See [llm.md](llm.md).
+
+```
+blackline-llm FILE INSTRUCTION -o OUT --author NAME
+```
+
+The model emits blackline ops; this CLI applies them. Default model is
+quantized Phi-3.5 mini (`--model` overrides).

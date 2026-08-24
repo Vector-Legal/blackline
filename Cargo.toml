@@ -5,6 +5,7 @@ members = [
     "crates/blackline-docx",
     "crates/blackline-xlsx",
     "crates/blackline-pptx",
+    "crates/blackline-llm",
     "crates/blackline",
 ]
 

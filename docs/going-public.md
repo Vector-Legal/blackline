@@ -28,7 +28,7 @@ Version tags, SemVer, and the day-to-day release loop live in
 
       ```bash
       for n in blackline blackline-core blackline-docx \
-               blackline-xlsx blackline-pptx blackline; do
+               blackline-xlsx blackline-pptx blackline-llm; do
         code=$(curl -sS -o /dev/null -w "%{http_code}" \
           "https://crates.io/api/v1/crates/$n")
         echo "$n $code"   # 404 = free
@@ -164,7 +164,7 @@ Verify:
 crates.io cannot attach Trusted Publishing to a crate that does not
 exist yet. After step 5:
 
-On each of the five crates → Settings → Trusted Publishing, add:
+On each of the six crates → Settings → Trusted Publishing, add:
 
 | Field | Value |
 |-------|-------|
