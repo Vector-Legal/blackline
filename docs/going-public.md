@@ -28,7 +28,7 @@ Version tags, SemVer, and the day-to-day release loop live in
 
       ```bash
       for n in blackline blackline-core blackline-docx \
-               blackline-xlsx blackline-pptx blackline-llm; do
+               blackline-xlsx blackline-pptx blackline-ai; do
         code=$(curl -sS -o /dev/null -w "%{http_code}" \
           "https://crates.io/api/v1/crates/$n")
         echo "$n $code"   # 404 = free

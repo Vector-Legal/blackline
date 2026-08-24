@@ -29,11 +29,11 @@ on it.
 | [`blackline-docx`](crates/blackline-docx) | WordprocessingML: view, search, edit, redline, track, comments, create, check |
 | [`blackline-xlsx`](crates/blackline-xlsx) | SpreadsheetML: sheets, cells, shared strings, create, edit, check |
 | [`blackline-pptx`](crates/blackline-pptx) | PresentationML: slides, text frames, create, edit, check |
-| [`blackline-llm`](crates/blackline-llm) | Local Kalosm frontend: a prompt becomes blackline ops |
+| [`blackline-ai`](crates/blackline-ai) | Local AI frontend: a prompt becomes blackline ops |
 | [`blackline`](crates/blackline) | Agent-first noun-verb CLI (`blackline` / `bl`) |
 
 Docs: [architecture](docs/architecture.md) · [CLI reference](docs/cli.md) ·
-[llm](docs/llm.md) ·
+[ai](docs/ai.md) ·
 [releasing](docs/releasing.md) · [going public](docs/going-public.md) ·
 [changelog](CHANGELOG.md)
 
@@ -116,7 +116,7 @@ Need something the verbs do not cover? Drop to the XML:
 without needing real documents. Run `bl <format> --help` for the full verb
 list, or see docs/cli.md.
 
-Natural language (local LLM on the same CLI; install with `--features kalosm`,
+Natural language (local AI on the same CLI; install with `--features kalosm`,
 and add `,metal` on Apple Silicon or `,cuda` on NVIDIA):
 
     bl ai contract.docx "change thirty days to sixty days" \
@@ -219,7 +219,7 @@ Edits are **strict** unless `--lenient` is passed. `--dry-run` validates without
 list; blackline applies it. Default model is quantized Phi-3.5 mini.
 `cargo install blackline` stays lean; rebuild with `--features kalosm`
 (plus `metal` or `cuda`) so the model runtime is present. The standalone
-`blackline-llm` binary is the same pipeline. See [docs/llm.md](docs/llm.md).
+`blackline-ai` binary is the same pipeline. See [docs/ai.md](docs/ai.md).
 
 ```bash
 bl ai contract.docx "change thirty days to sixty days" \
@@ -313,9 +313,9 @@ crates/
 ├── blackline-docx/    # document façade, edits, revisions, track, comments
 ├── blackline-xlsx/    # workbook, cells, shared strings
 ├── blackline-pptx/    # presentation, slides
-├── blackline-llm/     # local Kalosm frontend (prompt → blackline ops)
+├── blackline-ai/      # local AI frontend (prompt → blackline ops)
 └── blackline/         # bins blackline + bl
-docs/                  # architecture, CLI, llm, releasing, going public
+docs/                  # architecture, CLI, ai, releasing, going public
 ```
 
 ## License

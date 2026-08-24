@@ -4,9 +4,9 @@
 [graph]
 all-features = true
 # Kalosm / Candle pull licences and crates the rest of the workspace does
-# not ship. `bl ai` and blackline-llm enable them only behind
+# not ship. `bl ai` and blackline-ai enable them only behind
 # `--features kalosm` (the blackline crate forwards those flags).
-exclude = ["blackline-llm"]
+exclude = ["blackline-ai"]
 
 [advisories]
 # Fail on any dependency with a filed RUSTSEC advisory.

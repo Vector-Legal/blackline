@@ -1,4 +1,4 @@
-//! Apply a [`Plan`] through blackline. The LLM never touches the package.
+//! Apply a [`Plan`] through blackline. The model never touches the package.
 
 use std::path::{Path, PathBuf};
 
@@ -7,7 +7,7 @@ use blackline_pptx::{EditOp as PptxEditOp, Pptx};
 use blackline_xlsx::{EditOp as XlsxEditOp, Xlsx};
 use serde::Serialize;
 
-use crate::error::LlmError;
+use crate::error::AiError;
 use crate::format::Format;
 use crate::plan::{Op, Plan};
 
@@ -70,7 +70,7 @@ pub fn apply(
     output: Option<&Path>,
     plan: &Plan,
     opts: &ApplyOptions,
-) -> Result<ApplyReport, LlmError> {
+) -> Result<ApplyReport, AiError> {
     let format = Format::from_path(input)?;
     for op in &plan.ops {
         op.require_format(format)?;
@@ -87,8 +87,8 @@ fn apply_docx(
     output: Option<&Path>,
     plan: &Plan,
     opts: &ApplyOptions,
-) -> Result<ApplyReport, LlmError> {
-    let doc = Docx::open(input).map_err(|e| LlmError::Apply(e.to_string()))?;
+) -> Result<ApplyReport, AiError> {
+    let doc = Docx::open(input).map_err(|e| AiError::Apply(e.to_string()))?;
     if opts.no_track {
         let ops = plan
             .ops
@@ -108,18 +108,18 @@ fn apply_docx(
         }
         let outcome = builder
             .apply()
-            .map_err(|e| LlmError::Apply(e.to_string()))?;
+            .map_err(|e| AiError::Apply(e.to_string()))?;
         let report = map_docx_edit(&outcome.report);
         if let (Some(path), Some(edited)) = (output, outcome.document) {
             atomic_save(path, |p| {
-                edited.save(p).map_err(|e| LlmError::Apply(e.to_string()))
+                edited.save(p).map_err(|e| AiError::Apply(e.to_string()))
             })?;
         }
         return Ok(report);
     }
 
     let author = opts.author.as_deref().ok_or_else(|| {
-        LlmError::usage(
+        AiError::usage(
             "author required: tracked changes and comments must carry an explicit author \
              (pass --author or set BLACKLINE_AUTHOR)"
                 .to_string(),
@@ -139,19 +139,19 @@ fn apply_docx(
     }
     let outcome = builder
         .apply()
-        .map_err(|e| LlmError::Apply(e.to_string()))?;
+        .map_err(|e| AiError::Apply(e.to_string()))?;
     let report = map_track(&outcome.report);
     if let (Some(path), Some(edited)) = (output, outcome.document) {
         atomic_save(path, |p| {
-            edited.save(p).map_err(|e| LlmError::Apply(e.to_string()))
+            edited.save(p).map_err(|e| AiError::Apply(e.to_string()))
         })?;
-        let original = Docx::open(input).map_err(|e| LlmError::Apply(e.to_string()))?;
-        let saved = Docx::open(path).map_err(|e| LlmError::Apply(e.to_string()))?;
+        let original = Docx::open(input).map_err(|e| AiError::Apply(e.to_string()))?;
+        let saved = Docx::open(path).map_err(|e| AiError::Apply(e.to_string()))?;
         let health = saved
             .check_against(&original)
-            .map_err(|e| LlmError::Apply(e.to_string()))?;
+            .map_err(|e| AiError::Apply(e.to_string()))?;
         if !health.passed() {
-            return Err(LlmError::Apply(format!(
+            return Err(AiError::Apply(format!(
                 "package check failed after apply: {}",
                 serde_json::to_string(&health).unwrap_or_default()
             )));
@@ -165,8 +165,8 @@ fn apply_xlsx(
     output: Option<&Path>,
     plan: &Plan,
     opts: &ApplyOptions,
-) -> Result<ApplyReport, LlmError> {
-    let mut wb = Xlsx::open(input).map_err(|e| LlmError::Apply(e.to_string()))?;
+) -> Result<ApplyReport, AiError> {
+    let mut wb = Xlsx::open(input).map_err(|e| AiError::Apply(e.to_string()))?;
     let ops = plan
         .ops
         .iter()
@@ -178,11 +178,11 @@ fn apply_xlsx(
     };
     let report = wb
         .edit(&ops, &edit_opts)
-        .map_err(|e| LlmError::Apply(e.to_string()))?;
+        .map_err(|e| AiError::Apply(e.to_string()))?;
     if let Some(path) = output {
         if !opts.dry_run {
             atomic_save(path, |p| {
-                wb.save(p).map_err(|e| LlmError::Apply(e.to_string()))
+                wb.save(p).map_err(|e| AiError::Apply(e.to_string()))
             })?;
         }
     }
@@ -194,8 +194,8 @@ fn apply_pptx(
     output: Option<&Path>,
     plan: &Plan,
     opts: &ApplyOptions,
-) -> Result<ApplyReport, LlmError> {
-    let mut deck = Pptx::open(input).map_err(|e| LlmError::Apply(e.to_string()))?;
+) -> Result<ApplyReport, AiError> {
+    let mut deck = Pptx::open(input).map_err(|e| AiError::Apply(e.to_string()))?;
     let ops = plan
         .ops
         .iter()
@@ -207,18 +207,18 @@ fn apply_pptx(
     };
     let report = deck
         .edit(&ops, &edit_opts)
-        .map_err(|e| LlmError::Apply(e.to_string()))?;
+        .map_err(|e| AiError::Apply(e.to_string()))?;
     if let Some(path) = output {
         if !opts.dry_run {
             atomic_save(path, |p| {
-                deck.save(p).map_err(|e| LlmError::Apply(e.to_string()))
+                deck.save(p).map_err(|e| AiError::Apply(e.to_string()))
             })?;
         }
     }
     Ok(map_pptx(&report))
 }
 
-fn to_track(op: &Op) -> Result<TrackOp, LlmError> {
+fn to_track(op: &Op) -> Result<TrackOp, AiError> {
     Ok(match op {
         Op::Replace { index, old, new } => TrackOp::Replace {
             index: Some(require_index(*index)?),
@@ -273,7 +273,7 @@ fn to_track(op: &Op) -> Result<TrackOp, LlmError> {
             date: None,
         },
         other => {
-            return Err(LlmError::Apply(format!(
+            return Err(AiError::Apply(format!(
                 "op {} is not a Word track op",
                 other.name()
             )));
@@ -281,7 +281,7 @@ fn to_track(op: &Op) -> Result<TrackOp, LlmError> {
     })
 }
 
-fn to_docx_edit(op: &Op) -> Result<DocxEditOp, LlmError> {
+fn to_docx_edit(op: &Op) -> Result<DocxEditOp, AiError> {
     Ok(match op {
         Op::Replace { index, old, new } => DocxEditOp::Replace {
             index: Some(require_index(*index)?),
@@ -334,7 +334,7 @@ fn to_docx_edit(op: &Op) -> Result<DocxEditOp, LlmError> {
             author: None,
         },
         other => {
-            return Err(LlmError::Apply(format!(
+            return Err(AiError::Apply(format!(
                 "op {} is not a Word edit op",
                 other.name()
             )));
@@ -342,7 +342,7 @@ fn to_docx_edit(op: &Op) -> Result<DocxEditOp, LlmError> {
     })
 }
 
-fn to_xlsx(op: &Op) -> Result<XlsxEditOp, LlmError> {
+fn to_xlsx(op: &Op) -> Result<XlsxEditOp, AiError> {
     match op {
         Op::SetCell { sheet, cell, value } => Ok(XlsxEditOp::SetCell {
             sheet: sheet.clone(),
@@ -350,14 +350,14 @@ fn to_xlsx(op: &Op) -> Result<XlsxEditOp, LlmError> {
             value: Some(cell_value(value)),
             formula: None,
         }),
-        other => Err(LlmError::Apply(format!(
+        other => Err(AiError::Apply(format!(
             "op {} is not an Excel op",
             other.name()
         ))),
     }
 }
 
-fn to_pptx(op: &Op) -> Result<PptxEditOp, LlmError> {
+fn to_pptx(op: &Op) -> Result<PptxEditOp, AiError> {
     match op {
         Op::SetText {
             slide,
@@ -368,7 +368,7 @@ fn to_pptx(op: &Op) -> Result<PptxEditOp, LlmError> {
             element: require_index(*element)?,
             text: text.clone(),
         }),
-        other => Err(LlmError::Apply(format!(
+        other => Err(AiError::Apply(format!(
             "op {} is not a PowerPoint op",
             other.name()
         ))),
@@ -395,9 +395,9 @@ fn cell_value(raw: &str) -> serde_json::Value {
     serde_json::Value::String(raw.to_string())
 }
 
-fn require_index(index: u32) -> Result<usize, LlmError> {
+fn require_index(index: u32) -> Result<usize, AiError> {
     if index == 0 {
-        return Err(LlmError::Apply(
+        return Err(AiError::Apply(
             "indexes are 1-based; the model emitted 0".into(),
         ));
     }
@@ -527,10 +527,10 @@ fn map_pptx(r: &blackline_pptx::EditReport) -> ApplyReport {
 
 fn atomic_save(
     path: &Path,
-    write: impl FnOnce(&Path) -> Result<(), LlmError>,
-) -> Result<(), LlmError> {
+    write: impl FnOnce(&Path) -> Result<(), AiError>,
+) -> Result<(), AiError> {
     if let Some(dir) = path.parent().filter(|p| !p.as_os_str().is_empty()) {
-        std::fs::create_dir_all(dir).map_err(|e| LlmError::io_path(dir, e))?;
+        std::fs::create_dir_all(dir).map_err(|e| AiError::io_path(dir, e))?;
     }
     let tmp = path.with_file_name(format!(
         ".{}.tmp",
@@ -539,7 +539,7 @@ fn atomic_save(
     write(&tmp)?;
     std::fs::rename(&tmp, path).map_err(|e| {
         let _ = std::fs::remove_file(&tmp);
-        LlmError::Io(format!("rename {}: {e}", path.display()))
+        AiError::Io(format!("rename {}: {e}", path.display()))
     })?;
     Ok(())
 }
@@ -550,13 +550,13 @@ pub fn resolve_output(
     output: Option<&Path>,
     in_place: bool,
     dry_run: bool,
-) -> Result<Option<PathBuf>, LlmError> {
+) -> Result<Option<PathBuf>, AiError> {
     match (output, in_place, dry_run) {
-        (Some(_), true, _) => Err(LlmError::usage(
+        (Some(_), true, _) => Err(AiError::usage(
             "use either -o/--output or --in-place, not both".to_string(),
         )),
         (None, false, true) => Ok(None),
-        (None, false, false) => Err(LlmError::usage(
+        (None, false, false) => Err(AiError::usage(
             "pass -o/--output PATH or --in-place".to_string(),
         )),
         (Some(p), false, _) => Ok(Some(p.to_path_buf())),

@@ -236,9 +236,9 @@ those revisions first.
 
 ---
 
-## LLM sector
+## AI sector
 
-`blackline-llm` is a sibling crate, not a layer inside the toolkit. It
+`blackline-ai` is a sibling crate, not a layer inside the toolkit. It
 depends on the format façades and does not add models, prompts, or
 conversion to `blackline-core`. The same pipeline is wired as
 `bl ai` on the main CLI.
@@ -251,7 +251,7 @@ prompt + numbered view  →  Kalosm (constrained Plan)  →  Docx::track / Xlsx:
 never downloads a GGUF. Default model is quantized Phi-3.5 mini;
 `--model` overrides. PDF and Markdown stay out of scope.
 
-See [llm.md](llm.md).
+See [ai.md](ai.md).
 
 ---
 

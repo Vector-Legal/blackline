@@ -1,9 +1,9 @@
 //! The only types the model is allowed to emit. Applied through blackline
-//! `TrackOp` / `EditOp` — the LLM never writes OOXML itself.
+//! `TrackOp` / `EditOp` — the model never writes OOXML itself.
 
 use serde::{Deserialize, Serialize};
 
-use crate::error::LlmError;
+use crate::error::AiError;
 use crate::format::Format;
 
 /// A batch of ops. Constrained generation (Kalosm `Parse`) targets this type
@@ -155,12 +155,12 @@ impl Op {
         }
     }
 
-    pub(crate) fn require_format(&self, expected: Format) -> Result<(), LlmError> {
+    pub(crate) fn require_format(&self, expected: Format) -> Result<(), AiError> {
         let got = self.format();
         if got == expected {
             Ok(())
         } else {
-            Err(LlmError::Apply(format!(
+            Err(AiError::Apply(format!(
                 "op {} is for {got}, but the file is {expected}",
                 self.name()
             )))
@@ -178,7 +178,7 @@ pub trait Completer: Send + Sync {
         &self,
         view: &crate::view::DocumentView,
         instruction: &str,
-    ) -> impl std::future::Future<Output = Result<Plan, LlmError>> + Send;
+    ) -> impl std::future::Future<Output = Result<Plan, AiError>> + Send;
 }
 
 /// Completer that returns a canned plan. Tests inject this so the pipeline
@@ -200,7 +200,7 @@ impl Completer for StaticCompleter {
         &self,
         _view: &crate::view::DocumentView,
         _instruction: &str,
-    ) -> Result<Plan, LlmError> {
+    ) -> Result<Plan, AiError> {
         Ok(self.plan.clone())
     }
 }

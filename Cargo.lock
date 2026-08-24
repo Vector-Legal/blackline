@@ -340,9 +340,9 @@ name = "blackline"
 version = "0.3.2"
 dependencies = [
  "assert_cmd",
+ "blackline-ai",
  "blackline-core",
  "blackline-docx",
- "blackline-llm",
  "blackline-pptx",
  "blackline-xlsx",
  "clap 4.6.6",
@@ -350,6 +350,25 @@ dependencies = [
  "serde",
  "serde_json",
  "tempfile",
+]
+
+[[package]]
+name = "blackline-ai"
+version = "0.3.2"
+dependencies = [
+ "assert_cmd",
+ "blackline-core",
+ "blackline-docx",
+ "blackline-pptx",
+ "blackline-xlsx",
+ "clap 4.6.6",
+ "kalosm",
+ "predicates",
+ "serde",
+ "serde_json",
+ "tempfile",
+ "thiserror 2.0.20",
+ "tokio",
 ]
 
 [[package]]
@@ -373,25 +392,6 @@ dependencies = [
  "serde_json",
  "tempfile",
  "thiserror 2.0.20",
-]
-
-[[package]]
-name = "blackline-llm"
-version = "0.3.2"
-dependencies = [
- "assert_cmd",
- "blackline-core",
- "blackline-docx",
- "blackline-pptx",
- "blackline-xlsx",
- "clap 4.6.6",
- "kalosm",
- "predicates",
- "serde",
- "serde_json",
- "tempfile",
- "thiserror 2.0.20",
- "tokio",
 ]
 
 [[package]]

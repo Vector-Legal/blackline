@@ -10,9 +10,9 @@ Versioning follows [SemVer](https://semver.org) as described in
 
 ### Added
 
-- `bl ai FILE INSTRUCTION`: a local Kalosm frontend that turns a
+- `bl ai FILE INSTRUCTION`: a local AI frontend that turns a
   natural-language prompt into blackline ops. Same pipeline as the
-  standalone `blackline-llm` binary. Default model is quantized
+  standalone `blackline-ai` binary. Default model is quantized
   Phi-3.5 mini; `--model` selects a preset or a GGUF. DOCX ops apply
   as Word tracked changes. PDF / Markdown are refused — the toolkit
   still does not convert. `cargo install blackline` stays lean;

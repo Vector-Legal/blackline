@@ -1,6 +1,6 @@
 [package]
-name = "blackline-llm"
-description = "Local LLM frontend for blackline: natural-language prompts become native OOXML edits"
+name = "blackline-ai"
+description = "Local AI frontend for blackline: natural-language prompts become native OOXML edits"
 version.workspace = true
 edition.workspace = true
 rust-version.workspace = true
@@ -8,17 +8,17 @@ license.workspace = true
 authors.workspace = true
 repository.workspace = true
 homepage.workspace = true
-documentation = "https://docs.rs/blackline-llm"
+documentation = "https://docs.rs/blackline-ai"
 readme = "README.md"
-keywords = ["cli", "llm", "docx", "ooxml", "kalosm"]
+keywords = ["cli", "ai", "docx", "ooxml", "kalosm"]
 categories = ["command-line-utilities", "text-processing"]
 
 [features]
 # Kalosm is optional so `cargo test --workspace` does not compile Candle.
 # A working binary needs one of these:
-#   cargo install blackline-llm --features kalosm
-#   cargo install blackline-llm --features kalosm,metal   # Apple Silicon
-#   cargo install blackline-llm --features kalosm,cuda    # NVIDIA
+#   cargo install blackline-ai --features kalosm
+#   cargo install blackline-ai --features kalosm,metal   # Apple Silicon
+#   cargo install blackline-ai --features kalosm,cuda    # NVIDIA
 default = []
 kalosm = ["dep:kalosm"]
 metal = ["kalosm", "kalosm/metal"]
@@ -42,8 +42,8 @@ predicates = { workspace = true }
 tempfile = { workspace = true }
 
 [[bin]]
-name = "blackline-llm"
-path = "src/bin/blackline-llm.rs"
+name = "blackline-ai"
+path = "src/bin/blackline-ai.rs"
 
 [lints]
 workspace = true

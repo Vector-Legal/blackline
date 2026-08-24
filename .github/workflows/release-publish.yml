@@ -131,7 +131,7 @@ jobs:
           # registry. `cargo publish` waits for the index, so no sleeps.
           # Not atomic -- a failure part-way leaves earlier crates live.
           for p in blackline-core blackline-docx blackline-xlsx \
-                   blackline-pptx blackline-llm blackline; do
+                   blackline-pptx blackline-ai blackline; do
             echo "::group::publish $p"
             cargo publish -p "$p"
             echo "::endgroup::"

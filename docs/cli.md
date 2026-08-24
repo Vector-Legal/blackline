@@ -184,8 +184,8 @@ blackline fixtures DIR
 
 ## Natural language
 
-`bl ai` is a subcommand on this CLI. See [llm.md](llm.md). The
-standalone `blackline-llm` binary is the same pipeline.
+`bl ai` is a subcommand on this CLI. See [ai.md](ai.md). The
+standalone `blackline-ai` binary is the same pipeline.
 
 ```
 blackline ai FILE INSTRUCTION -o OUT --author NAME

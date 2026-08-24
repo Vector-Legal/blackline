@@ -79,8 +79,8 @@ enum Commands {
         cmd: cmd_track::TrackCmd,
     },
     /// Local AI: a prompt becomes native OOXML edits
-    #[command(about = blackline_llm::ABOUT, after_help = blackline_llm::AFTER_HELP)]
-    Ai(blackline_llm::LlmArgs),
+    #[command(about = blackline_ai::ABOUT, after_help = blackline_ai::AFTER_HELP)]
+    Ai(blackline_ai::AiArgs),
     /// Unpack an OOXML package into pretty-printed XML
     Unpack {
         /// Package

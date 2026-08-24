@@ -3,7 +3,7 @@
 blackline is a Cargo workspace with a **single shared version**
 (`workspace.package.version` in the root `Cargo.toml`). All crates
 (`blackline-core`, `blackline-docx`, `blackline-xlsx`, `blackline-pptx`,
-`blackline-llm`, `blackline`) ship together.
+`blackline-ai`, `blackline`) ship together.
 
 ## SemVer
 

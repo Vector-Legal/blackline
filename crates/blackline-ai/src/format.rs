@@ -5,7 +5,7 @@ use std::path::Path;
 
 use serde::Serialize;
 
-use crate::error::LlmError;
+use crate::error::AiError;
 
 /// The three packages blackline can edit.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
@@ -22,7 +22,7 @@ pub enum Format {
 impl Format {
     /// Detect from the file extension. Unknown types get a usage error that
     /// names the supported set and explicitly refuses PDF / Markdown.
-    pub fn from_path(path: &Path) -> Result<Self, LlmError> {
+    pub fn from_path(path: &Path) -> Result<Self, AiError> {
         let ext = path
             .extension()
             .and_then(|s| s.to_str())
@@ -32,14 +32,14 @@ impl Format {
             "docx" => Ok(Self::Docx),
             "xlsx" => Ok(Self::Xlsx),
             "pptx" => Ok(Self::Pptx),
-            "pdf" | "md" | "markdown" | "html" | "htm" | "txt" => Err(LlmError::usage(format!(
-                "blackline-llm reads native Office files (.docx .xlsx .pptx). \
+            "pdf" | "md" | "markdown" | "html" | "htm" | "txt" => Err(AiError::usage(format!(
+                "blackline-ai reads native Office files (.docx .xlsx .pptx). \
                  It does not convert .{ext}. Run blackline on the OOXML package."
             ))),
-            "" => Err(LlmError::usage(
+            "" => Err(AiError::usage(
                 "file has no extension; expected .docx, .xlsx, or .pptx",
             )),
-            other => Err(LlmError::usage(format!(
+            other => Err(AiError::usage(format!(
                 "unsupported .{other}; expected .docx, .xlsx, or .pptx"
             ))),
         }

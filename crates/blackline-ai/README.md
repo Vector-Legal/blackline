@@ -1,6 +1,6 @@
-# blackline-llm
+# blackline-ai
 
-Local LLM frontend for [blackline](https://github.com/Vector-Legal/blackline).
+Local AI frontend for [blackline](https://github.com/Vector-Legal/blackline).
 A natural-language prompt becomes a small op list; blackline applies it as
 native OOXML. The model never writes XML.
 
@@ -12,7 +12,7 @@ library plus a standalone binary, if you want that install on its own.
 
 ```bash
 cargo install blackline --features kalosm              # `bl ai`
-cargo install blackline-llm --features kalosm          # standalone
+cargo install blackline-ai --features kalosm          # standalone
 cargo install blackline --features kalosm,metal        # Apple Silicon
 cargo install blackline --features kalosm,cuda         # NVIDIA
 ```
@@ -28,7 +28,7 @@ is required, same as `bl track apply`. XLSX and PPTX are silent edits.
 ## What it is
 
 blackline is unopinionated: it edits the XML that actually lives in a
-`.docx` / `.xlsx` / `.pptx`. blackline-llm sits **on top** of that toolkit
+`.docx` / `.xlsx` / `.pptx`. blackline-ai sits **on top** of that toolkit
 and does one thing:
 
 1. Render the file as a numbered view (`bl docx view` index space).
@@ -42,7 +42,7 @@ No HTML, Markdown, or PDF conversion. Those are not Office packages.
 
 ```
 bl ai FILE INSTRUCTION
-blackline-llm FILE INSTRUCTION
+blackline-ai FILE INSTRUCTION
 ```
 
 ```
@@ -115,9 +115,9 @@ copied from the view, not paraphrased. Applied through `Docx::track`
 ## Library
 
 ```rust
-use blackline_llm::{run_with_completer, ApplyOptions, Op, Plan, StaticCompleter};
+use blackline_ai::{run_with_completer, ApplyOptions, Op, Plan, StaticCompleter};
 
-# async fn demo() -> Result<(), blackline_llm::LlmError> {
+# async fn demo() -> Result<(), blackline_ai::AiError> {
 let plan = Plan {
     ops: vec![Op::Replace {
         index: 1,
@@ -147,14 +147,14 @@ generation into `Plan`. Tests inject `StaticCompleter`.
 ## Build
 
 ```bash
-cargo test -p blackline-llm                 # no Candle, no download
-cargo build -p blackline-llm --features kalosm --release
+cargo test -p blackline-ai                 # no Candle, no download
+cargo build -p blackline-ai --features kalosm --release
 ```
 
 Workspace CI runs the first line. Compiling Kalosm / Candle is opt-in.
 
-- [docs.rs](https://docs.rs/blackline-llm)
-- [CLI](https://github.com/Vector-Legal/blackline/blob/main/docs/llm.md)
+- [docs.rs](https://docs.rs/blackline-ai)
+- [CLI](https://github.com/Vector-Legal/blackline/blob/main/docs/ai.md)
 - [Repository](https://github.com/Vector-Legal/blackline)
 
 License: MIT.

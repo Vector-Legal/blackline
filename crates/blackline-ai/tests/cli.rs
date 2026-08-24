@@ -7,7 +7,7 @@ use tempfile::TempDir;
 use blackline_docx::Docx;
 
 fn bin() -> Command {
-    Command::cargo_bin("blackline-llm").unwrap()
+    Command::cargo_bin("blackline-ai").unwrap()
 }
 
 #[test]

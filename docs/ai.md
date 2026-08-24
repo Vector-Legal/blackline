@@ -7,7 +7,7 @@ blackline applies them as native OOXML. The model never writes XML.
 bl ai FILE INSTRUCTION
 ```
 
-The standalone `blackline-llm` binary is the same pipeline, if you want
+The standalone `blackline-ai` binary is the same pipeline, if you want
 that crate on its own.
 
 Kalosm is opt-in so a default `cargo install blackline` stays lean.

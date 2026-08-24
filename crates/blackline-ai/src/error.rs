@@ -1,4 +1,4 @@
-//! Errors for the blackline-llm pipeline.
+//! Errors for the blackline-ai pipeline.
 
 use std::io;
 use std::path::PathBuf;
@@ -7,7 +7,7 @@ use thiserror::Error;
 
 /// A pipeline failure. CLI maps `Usage` to exit 2 and everything else to 1.
 #[derive(Debug, Error)]
-pub enum LlmError {
+pub enum AiError {
     /// Bad flags, missing author, unsupported file type.
     #[error("{0}")]
     Usage(String),
@@ -22,7 +22,7 @@ pub enum LlmError {
     Io(String),
 }
 
-impl LlmError {
+impl AiError {
     /// Prefix used by the CLI to choose exit code 2.
     pub fn is_usage(&self) -> bool {
         matches!(self, Self::Usage(_))
@@ -41,7 +41,7 @@ impl LlmError {
     }
 }
 
-impl From<io::Error> for LlmError {
+impl From<io::Error> for AiError {
     fn from(err: io::Error) -> Self {
         Self::Io(err.to_string())
     }

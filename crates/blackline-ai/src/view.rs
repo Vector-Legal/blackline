@@ -6,7 +6,7 @@ use blackline_docx::Docx;
 use blackline_pptx::Pptx;
 use blackline_xlsx::Xlsx;
 
-use crate::error::LlmError;
+use crate::error::AiError;
 use crate::format::Format;
 
 /// Soft cap on characters stuffed into the prompt. `--from` / `--to` is the
@@ -32,10 +32,10 @@ impl DocumentView {
         from: Option<usize>,
         to: Option<usize>,
         sheet: Option<&str>,
-    ) -> Result<Self, LlmError> {
+    ) -> Result<Self, AiError> {
         let format = Format::from_path(path)?;
         if !path.is_file() {
-            return Err(LlmError::missing(path.to_path_buf()));
+            return Err(AiError::missing(path.to_path_buf()));
         }
         let mut lines = match format {
             Format::Docx => view_docx(path)?,
@@ -66,14 +66,14 @@ impl DocumentView {
     }
 }
 
-fn view_docx(path: &Path) -> Result<Vec<String>, LlmError> {
-    let doc = Docx::open(path).map_err(|e| LlmError::Apply(e.to_string()))?;
-    doc.text_lines().map_err(|e| LlmError::Apply(e.to_string()))
+fn view_docx(path: &Path) -> Result<Vec<String>, AiError> {
+    let doc = Docx::open(path).map_err(|e| AiError::Apply(e.to_string()))?;
+    doc.text_lines().map_err(|e| AiError::Apply(e.to_string()))
 }
 
-fn view_xlsx(path: &Path, sheet: Option<&str>) -> Result<Vec<String>, LlmError> {
-    let wb = Xlsx::open(path).map_err(|e| LlmError::Apply(e.to_string()))?;
-    let views = wb.view(sheet).map_err(|e| LlmError::Apply(e.to_string()))?;
+fn view_xlsx(path: &Path, sheet: Option<&str>) -> Result<Vec<String>, AiError> {
+    let wb = Xlsx::open(path).map_err(|e| AiError::Apply(e.to_string()))?;
+    let views = wb.view(sheet).map_err(|e| AiError::Apply(e.to_string()))?;
     let mut lines = Vec::new();
     for sheet_view in views {
         for row in sheet_view.rows {
@@ -85,9 +85,9 @@ fn view_xlsx(path: &Path, sheet: Option<&str>) -> Result<Vec<String>, LlmError> 
     Ok(lines)
 }
 
-fn view_pptx(path: &Path) -> Result<Vec<String>, LlmError> {
-    let deck = Pptx::open(path).map_err(|e| LlmError::Apply(e.to_string()))?;
-    let views = deck.view().map_err(|e| LlmError::Apply(e.to_string()))?;
+fn view_pptx(path: &Path) -> Result<Vec<String>, AiError> {
+    let deck = Pptx::open(path).map_err(|e| AiError::Apply(e.to_string()))?;
+    let views = deck.view().map_err(|e| AiError::Apply(e.to_string()))?;
     let mut lines = Vec::new();
     for slide in views {
         for (i, text) in slide.elements.iter().enumerate() {

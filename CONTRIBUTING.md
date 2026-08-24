@@ -61,9 +61,9 @@ crates/blackline-core/    OPC package, XML DOM, TreeOp, formula, patch, update
 crates/blackline-docx/    WordprocessingML (including track / redline)
 crates/blackline-xlsx/    SpreadsheetML
 crates/blackline-pptx/    PresentationML
-crates/blackline-llm/     local Kalosm frontend (optional `--features kalosm`)
+crates/blackline-ai/      local AI frontend (optional `--features kalosm`)
 crates/blackline/         blackline / bl binaries (`bl ai` is the same pipeline)
-docs/                    architecture, CLI, llm, releasing, going public
+docs/                    architecture, CLI, ai, releasing, going public
 ```
 
 ## Tests

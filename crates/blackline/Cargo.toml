@@ -33,16 +33,16 @@ path = "src/bin/bl.rs"
 #   cargo install blackline --features kalosm,metal   # Apple Silicon
 #   cargo install blackline --features kalosm,cuda    # NVIDIA
 default = []
-kalosm = ["blackline-llm/kalosm"]
-metal = ["blackline-llm/metal"]
-cuda = ["blackline-llm/cuda"]
+kalosm = ["blackline-ai/kalosm"]
+metal = ["blackline-ai/metal"]
+cuda = ["blackline-ai/cuda"]
 
 [dependencies]
 blackline-core = { workspace = true }
 blackline-docx = { workspace = true }
 blackline-xlsx = { workspace = true }
 blackline-pptx = { workspace = true }
-blackline-llm = { workspace = true }
+blackline-ai = { workspace = true }
 clap = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }

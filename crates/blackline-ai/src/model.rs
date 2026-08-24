@@ -2,7 +2,7 @@
 
 use std::path::{Path, PathBuf};
 
-use crate::error::LlmError;
+use crate::error::AiError;
 
 /// Default: Kalosm's quantized Phi-3.5 mini (reasoning, fits a 16 GB MacBook).
 pub const DEFAULT_MODEL: &str = "phi-3.5";
@@ -36,10 +36,10 @@ pub enum ModelId {
 impl ModelId {
     /// Parse a `--model` value. A path that exists or ends in `.gguf` is a
     /// local file; everything else must be a known preset name.
-    pub fn parse(raw: &str) -> Result<Self, LlmError> {
+    pub fn parse(raw: &str) -> Result<Self, AiError> {
         let t = raw.trim();
         if t.is_empty() {
-            return Err(LlmError::usage(
+            return Err(AiError::usage(
                 "pass --model NAME or a .gguf path".to_string(),
             ));
         }
@@ -58,7 +58,7 @@ impl ModelId {
             "qwen2.5-7b" | "qwen-2.5-7b" => Self::Qwen25_7b,
             "tinyllama" | "tiny-llama" => Self::TinyLlama,
             other => {
-                return Err(LlmError::usage(format!(
+                return Err(AiError::usage(format!(
                     "unknown model {other:?}. presets: {}; or pass a .gguf path",
                     Self::presets().join(", ")
                 )));
@@ -100,7 +100,7 @@ impl ModelId {
 
 /// Load the model and wrap it as a [`crate::plan::Completer`].
 #[cfg(feature = "kalosm")]
-pub async fn load(id: &ModelId, verbose: bool) -> Result<KalosmCompleter, LlmError> {
+pub async fn load(id: &ModelId, verbose: bool) -> Result<KalosmCompleter, AiError> {
     use kalosm::language::{FileSource, Llama, LlamaSource};
 
     let source = match id {
@@ -123,7 +123,7 @@ pub async fn load(id: &ModelId, verbose: bool) -> Result<KalosmCompleter, LlmErr
         .with_source(source)
         .build()
         .await
-        .map_err(|e| LlmError::Model(format!("failed to load {}: {e}", id.as_str())))?;
+        .map_err(|e| AiError::Model(format!("failed to load {}: {e}", id.as_str())))?;
     Ok(KalosmCompleter { llama })
 }
 
@@ -139,7 +139,7 @@ impl crate::plan::Completer for KalosmCompleter {
         &self,
         view: &crate::view::DocumentView,
         instruction: &str,
-    ) -> Result<crate::plan::Plan, LlmError> {
+    ) -> Result<crate::plan::Plan, AiError> {
         use crate::plan::{system_prompt, user_prompt, Plan};
         use kalosm::language::ChatModelExt;
         use std::sync::Arc;
@@ -151,7 +151,7 @@ impl crate::plan::Completer for KalosmCompleter {
         let user = user_prompt(view, instruction);
         task(&user)
             .await
-            .map_err(|e| LlmError::Model(e.to_string()))
+            .map_err(|e| AiError::Model(e.to_string()))
     }
 }
 

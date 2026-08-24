@@ -1,4 +1,4 @@
-//! Shared CLI for `blackline-llm FILE INSTRUCTION` and `bl ai …`.
+//! Shared CLI for `blackline-ai FILE INSTRUCTION` and `bl ai …`.
 
 use std::path::PathBuf;
 use std::process::ExitCode;
@@ -7,12 +7,12 @@ use clap::{Args, Parser};
 use serde::Serialize;
 
 use crate::apply::{self, ApplyOptions, ApplyReport};
-use crate::error::LlmError;
+use crate::error::AiError;
 use crate::model::{ModelId, DEFAULT_MODEL};
 use crate::plan::{Completer, Plan};
 use crate::view::DocumentView;
 
-/// One-line about text for `bl ai` and `blackline-llm`.
+/// One-line about text for `bl ai` and `blackline-ai`.
 pub const ABOUT: &str = "Local AI that drives blackline: a prompt becomes native OOXML edits";
 
 /// Longer help shown after the flag list.
@@ -23,12 +23,12 @@ pub const AFTER_HELP: &str = "The model never writes OOXML. It emits a small op 
         Examples:\n  \
         bl ai contract.docx \"change thirty days to sixty days\" -o out.docx --author \"Jane Doe\"\n  \
         bl ai model.xlsx \"set B2 to 42\" --in-place --model llama3.2-3b\n  \
-        blackline-llm deck.pptx \"set the title to Q3\" -o out.pptx --model ./phi.gguf\n  \
+        blackline-ai deck.pptx \"set the title to Q3\" -o out.pptx --model ./phi.gguf\n  \
         bl ai contract.docx \"flag the indemnity clause\" --dry-run --json --author Jane";
 
-/// Flags shared by `bl ai` and the standalone `blackline-llm` binary.
+/// Flags shared by `bl ai` and the standalone `blackline-ai` binary.
 #[derive(Args, Debug)]
-pub struct LlmArgs {
+pub struct AiArgs {
     /// DOCX / XLSX / PPTX file
     pub file: PathBuf,
     /// Natural-language instruction. `@path` reads a file; `-` reads stdin.
@@ -74,10 +74,10 @@ pub struct LlmArgs {
     pub verbose: bool,
 }
 
-/// Standalone `blackline-llm` parser. `bl ai` uses [`LlmArgs`] directly.
+/// Standalone `blackline-ai` parser. `bl ai` uses [`AiArgs`] directly.
 #[derive(Parser, Debug)]
 #[command(
-    name = "blackline-llm",
+    name = "blackline-ai",
     version,
     about = ABOUT,
     after_help = AFTER_HELP
@@ -85,12 +85,12 @@ pub struct LlmArgs {
 pub struct Cli {
     /// Shared flags (`bl ai` uses these directly).
     #[command(flatten)]
-    pub args: LlmArgs,
+    pub args: AiArgs,
 }
 
 /// JSON document written by `--json`.
 #[derive(Debug, Serialize)]
-pub struct LlmReport {
+pub struct AiReport {
     /// `docx` / `xlsx` / `pptx`.
     pub format: crate::format::Format,
     /// Preset name or GGUF path.
@@ -110,7 +110,7 @@ pub fn run() -> ExitCode {
 }
 
 /// Run a parsed argument set. Both CLIs call this.
-pub fn run_args(args: LlmArgs) -> Result<(), LlmError> {
+pub fn run_args(args: AiArgs) -> Result<(), AiError> {
     tokio::runtime::Builder::new_multi_thread()
         .enable_all()
         .build()
@@ -119,7 +119,7 @@ pub fn run_args(args: LlmArgs) -> Result<(), LlmError> {
 }
 
 /// Map a pipeline result to the shared 0 / 1 / 2 exit codes.
-pub fn exit_from(result: Result<(), LlmError>) -> ExitCode {
+pub fn exit_from(result: Result<(), AiError>) -> ExitCode {
     match result {
         Ok(()) => ExitCode::SUCCESS,
         Err(e) if e.is_usage() => {
@@ -135,10 +135,10 @@ pub fn exit_from(result: Result<(), LlmError>) -> ExitCode {
     }
 }
 
-async fn run_cli(cli: LlmArgs) -> Result<(), LlmError> {
+async fn run_cli(cli: AiArgs) -> Result<(), AiError> {
     let instruction = read_instruction(&cli.instruction)?;
     if instruction.trim().is_empty() {
-        return Err(LlmError::usage("instruction is empty".to_string()));
+        return Err(AiError::usage("instruction is empty".to_string()));
     }
     let output =
         apply::resolve_output(&cli.file, cli.output.as_deref(), cli.in_place, cli.dry_run)?;
@@ -149,7 +149,7 @@ async fn run_cli(cli: LlmArgs) -> Result<(), LlmError> {
     let view = DocumentView::open(&cli.file, cli.from, cli.to, cli.sheet.as_deref())?;
 
     if view.format == crate::format::Format::Docx && !cli.no_track && author.is_none() {
-        return Err(LlmError::usage(
+        return Err(AiError::usage(
             "author required: tracked changes and comments must carry an explicit author \
              (pass --author or set BLACKLINE_AUTHOR)"
                 .to_string(),
@@ -167,7 +167,7 @@ async fn run_cli(cli: LlmArgs) -> Result<(), LlmError> {
     };
     let apply_report = apply::apply(&cli.file, output.as_deref(), &plan, &opts)?;
 
-    let report = LlmReport {
+    let report = AiReport {
         format: view.format,
         model: model_id.as_str(),
         plan,
@@ -177,7 +177,7 @@ async fn run_cli(cli: LlmArgs) -> Result<(), LlmError> {
     if cli.json {
         println!(
             "{}",
-            serde_json::to_string_pretty(&report).map_err(|e| LlmError::Io(e.to_string()))?
+            serde_json::to_string_pretty(&report).map_err(|e| AiError::Io(e.to_string()))?
         );
     } else {
         print_human(&report);
@@ -190,7 +190,7 @@ async fn complete_with_model(
     view: &DocumentView,
     instruction: &str,
     verbose: bool,
-) -> Result<Plan, LlmError> {
+) -> Result<Plan, AiError> {
     #[cfg(feature = "kalosm")]
     {
         let completer = crate::model::load(id, verbose).await?;
@@ -199,45 +199,45 @@ async fn complete_with_model(
     #[cfg(not(feature = "kalosm"))]
     {
         let _ = (id, view, instruction, verbose);
-        Err(LlmError::usage(
+        Err(AiError::usage(
             "this binary was built without Kalosm. Rebuild with --features kalosm:\n  \
              cargo install blackline --features kalosm\n  \
              cargo install blackline --features kalosm,metal   # Apple Silicon\n  \
              cargo install blackline --features kalosm,cuda    # NVIDIA\n  \
-             cargo install blackline-llm --features kalosm     # standalone binary"
+             cargo install blackline-ai --features kalosm     # standalone binary"
                 .to_string(),
         ))
     }
 }
 
-fn read_instruction(raw: &str) -> Result<String, LlmError> {
+fn read_instruction(raw: &str) -> Result<String, AiError> {
     if raw == "-" {
         use std::io::Read;
         let mut buf = String::new();
         std::io::stdin()
             .read_to_string(&mut buf)
-            .map_err(|e| LlmError::Io(format!("failed to read stdin: {e}")))?;
+            .map_err(|e| AiError::Io(format!("failed to read stdin: {e}")))?;
         return Ok(buf);
     }
     if let Some(path) = raw.strip_prefix('@') {
         return std::fs::read_to_string(path)
-            .map_err(|e| LlmError::Io(format!("failed to read {path}: {e}")));
+            .map_err(|e| AiError::Io(format!("failed to read {path}: {e}")));
     }
     Ok(raw.to_string())
 }
 
-fn parse_granularity(raw: &str) -> Result<blackline_docx::Granularity, LlmError> {
+fn parse_granularity(raw: &str) -> Result<blackline_docx::Granularity, AiError> {
     match raw {
         "char" => Ok(blackline_docx::Granularity::Char),
         "word" => Ok(blackline_docx::Granularity::Word),
         "sentence" => Ok(blackline_docx::Granularity::Sentence),
-        other => Err(LlmError::usage(format!(
+        other => Err(AiError::usage(format!(
             "unknown --granularity {other:?} (char | word | sentence)"
         ))),
     }
 }
 
-fn resolve_author(flag: Option<&str>) -> Result<Option<String>, LlmError> {
+fn resolve_author(flag: Option<&str>) -> Result<Option<String>, AiError> {
     if let Some(a) = flag {
         if !a.trim().is_empty() {
             return Ok(Some(a.to_string()));
@@ -251,7 +251,7 @@ fn resolve_author(flag: Option<&str>) -> Result<Option<String>, LlmError> {
     Ok(None)
 }
 
-fn print_human(report: &LlmReport) {
+fn print_human(report: &AiReport) {
     eprintln!(
         "{}  model={}  {} op(s)  applied={}  failed={}  {}",
         report.format,
@@ -276,11 +276,11 @@ pub async fn run_with_completer<C: Completer>(
     output: Option<&std::path::Path>,
     opts: ApplyOptions,
     completer: &C,
-) -> Result<LlmReport, LlmError> {
+) -> Result<AiReport, AiError> {
     let view = DocumentView::open(file, None, None, None)?;
     let plan = completer.complete(&view, instruction).await?;
     let apply_report = apply::apply(file, output, &plan, &opts)?;
-    Ok(LlmReport {
+    Ok(AiReport {
         format: view.format,
         model: "static".into(),
         plan,

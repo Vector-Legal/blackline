@@ -1,7 +1,7 @@
 //! Pipeline tests: a canned completer drives blackline. No model download.
 
 use blackline_docx::Docx;
-use blackline_llm::{run_with_completer, ApplyOptions, Op, Plan, Position, StaticCompleter};
+use blackline_ai::{run_with_completer, ApplyOptions, Op, Plan, Position, StaticCompleter};
 use blackline_pptx::{CreateSpec, Pptx, SlideSpec};
 use blackline_xlsx::Xlsx;
 use tempfile::TempDir;
