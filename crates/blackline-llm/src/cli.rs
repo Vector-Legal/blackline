@@ -1,4 +1,4 @@
-//! Shared CLI for `blackline-llm FILE INSTRUCTION` and `bl llm …`.
+//! Shared CLI for `blackline-llm FILE INSTRUCTION` and `bl ai …`.
 
 use std::path::PathBuf;
 use std::process::ExitCode;
@@ -12,8 +12,8 @@ use crate::model::{ModelId, DEFAULT_MODEL};
 use crate::plan::{Completer, Plan};
 use crate::view::DocumentView;
 
-/// One-line about text for `bl llm` and `blackline-llm`.
-pub const ABOUT: &str = "Local LLM that drives blackline: a prompt becomes native OOXML edits";
+/// One-line about text for `bl ai` and `blackline-llm`.
+pub const ABOUT: &str = "Local AI that drives blackline: a prompt becomes native OOXML edits";
 
 /// Longer help shown after the flag list.
 pub const AFTER_HELP: &str = "The model never writes OOXML. It emits a small op list; blackline applies it.\n\
@@ -21,12 +21,12 @@ pub const AFTER_HELP: &str = "The model never writes OOXML. It emits a small op 
         Default model is quantized Phi-3.5 mini (Kalosm). Override with --model.\n\
         First run downloads the GGUF into the Kalosm cache.\n\n\
         Examples:\n  \
-        bl llm contract.docx \"change thirty days to sixty days\" -o out.docx --author \"Jane Doe\"\n  \
-        bl llm model.xlsx \"set B2 to 42\" --in-place --model llama3.2-3b\n  \
+        bl ai contract.docx \"change thirty days to sixty days\" -o out.docx --author \"Jane Doe\"\n  \
+        bl ai model.xlsx \"set B2 to 42\" --in-place --model llama3.2-3b\n  \
         blackline-llm deck.pptx \"set the title to Q3\" -o out.pptx --model ./phi.gguf\n  \
-        bl llm contract.docx \"flag the indemnity clause\" --dry-run --json --author Jane";
+        bl ai contract.docx \"flag the indemnity clause\" --dry-run --json --author Jane";
 
-/// Flags shared by `bl llm` and the standalone `blackline-llm` binary.
+/// Flags shared by `bl ai` and the standalone `blackline-llm` binary.
 #[derive(Args, Debug)]
 pub struct LlmArgs {
     /// DOCX / XLSX / PPTX file
@@ -74,7 +74,7 @@ pub struct LlmArgs {
     pub verbose: bool,
 }
 
-/// Standalone `blackline-llm` parser. `bl llm` uses [`LlmArgs`] directly.
+/// Standalone `blackline-llm` parser. `bl ai` uses [`LlmArgs`] directly.
 #[derive(Parser, Debug)]
 #[command(
     name = "blackline-llm",
@@ -83,7 +83,7 @@ pub struct LlmArgs {
     after_help = AFTER_HELP
 )]
 pub struct Cli {
-    /// Shared flags (`bl llm` uses these directly).
+    /// Shared flags (`bl ai` uses these directly).
     #[command(flatten)]
     pub args: LlmArgs,
 }

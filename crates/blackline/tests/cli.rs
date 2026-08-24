@@ -657,12 +657,12 @@ fn fixtures_pass_package_check() {
 }
 
 #[test]
-fn llm_help_is_on_the_main_cli() {
+fn ai_help_is_on_the_main_cli() {
     bl().args(["--help"])
         .assert()
         .success()
-        .stdout(predicate::str::contains("llm"));
-    bl().args(["llm", "--help"])
+        .stdout(predicate::str::contains("Local AI"));
+    bl().args(["ai", "--help"])
         .assert()
         .success()
         .stdout(predicate::str::contains("phi-3.5"))
@@ -672,21 +672,21 @@ fn llm_help_is_on_the_main_cli() {
 }
 
 #[test]
-fn llm_refuses_pdf_and_requires_author() {
+fn ai_refuses_pdf_and_requires_author() {
     let dir = fixtures();
     let pdf = {
         let p = dir.path().join("memo.pdf");
         std::fs::write(&p, b"%PDF").unwrap();
         p.display().to_string()
     };
-    bl().args(["llm", &pdf, "summarize this", "--dry-run"])
+    bl().args(["ai", &pdf, "summarize this", "--dry-run"])
         .assert()
         .failure()
         .code(2)
         .stderr(predicate::str::contains(".docx"));
 
     let file = path(&dir, "simple.docx");
-    bl().args(["llm", &file, "change hello to hi", "--dry-run"])
+    bl().args(["ai", &file, "change hello to hi", "--dry-run"])
         .env_remove("BLACKLINE_AUTHOR")
         .assert()
         .failure()
@@ -695,14 +695,14 @@ fn llm_refuses_pdf_and_requires_author() {
 }
 
 #[test]
-fn llm_without_kalosm_explains_rebuild() {
+fn ai_without_kalosm_explains_rebuild() {
     if cfg!(feature = "kalosm") {
         return;
     }
     let dir = fixtures();
     let file = path(&dir, "simple.docx");
     bl().args([
-        "llm",
+        "ai",
         &file,
         "change hello to hi",
         "--dry-run",

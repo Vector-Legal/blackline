@@ -1,17 +1,17 @@
-# `bl llm`
+# `bl ai`
 
 Natural-language frontend for blackline. A local Kalosm model emits ops;
 blackline applies them as native OOXML. The model never writes XML.
 
 ```
-bl llm FILE INSTRUCTION
+bl ai FILE INSTRUCTION
 ```
 
 The standalone `blackline-llm` binary is the same pipeline, if you want
 that crate on its own.
 
 Kalosm is opt-in so a default `cargo install blackline` stays lean.
-`bl llm --help` always works; running a prompt without the feature
+`bl ai --help` always works; running a prompt without the feature
 prints the rebuild line.
 
 ```
@@ -31,7 +31,7 @@ XML in a `.docx` / `.xlsx` / `.pptx` package.
 ## Flags
 
 ```
-bl llm FILE INSTRUCTION
+bl ai FILE INSTRUCTION
     -o, --output PATH
         --in-place
         --author NAME

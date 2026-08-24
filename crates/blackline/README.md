@@ -23,7 +23,7 @@ operating on the OOXML inside the package (no HTML/Markdown/PDF conversion).
     bl --version
 
 Grammar is `bl <format> <verb> FILE [args]` — format is docx | xlsx | pptx —
-plus `track`, `xml`, `llm`, `unpack`, `pack` and `fixtures`.
+plus `track`, `xml`, `ai`, `unpack`, `pack` and `fixtures`.
 
 Rules that matter:
 - `info`, `check`, `changes`, `comments` and `--json` always emit JSON. Parse
@@ -77,7 +77,7 @@ Run `bl <format> --help` for the full verb list.
 
 Natural language (rebuild with `--features kalosm` so the model is present):
 
-    bl llm contract.docx "change thirty days to sixty days" \
+    bl ai contract.docx "change thirty days to sixty days" \
         -o revised.docx --author "Jane Doe"
 ````
 

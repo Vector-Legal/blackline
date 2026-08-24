@@ -62,7 +62,7 @@ crates/blackline-docx/    WordprocessingML (including track / redline)
 crates/blackline-xlsx/    SpreadsheetML
 crates/blackline-pptx/    PresentationML
 crates/blackline-llm/     local Kalosm frontend (optional `--features kalosm`)
-crates/blackline/         blackline / bl binaries (`bl llm` is the same pipeline)
+crates/blackline/         blackline / bl binaries (`bl ai` is the same pipeline)
 docs/                    architecture, CLI, llm, releasing, going public
 ```
 

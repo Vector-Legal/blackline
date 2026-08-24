@@ -1,8 +1,8 @@
-//! `blackline llm FILE INSTRUCTION` — same pipeline as `blackline-llm`.
+//! `blackline ai FILE INSTRUCTION` — same pipeline as `blackline-llm`.
 
 use blackline_llm::LlmArgs;
 
-/// Run the shared LLM pipeline and map its errors onto this CLI's exit codes.
+/// Run the shared AI pipeline and map its errors onto this CLI's exit codes.
 pub fn run(args: LlmArgs) -> Result<i32, String> {
     match blackline_llm::run_args(args) {
         Ok(()) => Ok(0),

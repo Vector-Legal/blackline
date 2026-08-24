@@ -4,7 +4,7 @@
 
 ```
 blackline <format> <verb> [args]
-blackline llm FILE INSTRUCTION
+blackline ai FILE INSTRUCTION
 blackline unpack FILE DIR
 blackline pack DIR FILE
 blackline fixtures DIR
@@ -184,11 +184,11 @@ blackline fixtures DIR
 
 ## Natural language
 
-`bl llm` is a subcommand on this CLI. See [llm.md](llm.md). The
+`bl ai` is a subcommand on this CLI. See [llm.md](llm.md). The
 standalone `blackline-llm` binary is the same pipeline.
 
 ```
-blackline llm FILE INSTRUCTION -o OUT --author NAME
+blackline ai FILE INSTRUCTION -o OUT --author NAME
 ```
 
 The model emits blackline ops; this CLI applies them. Default model is

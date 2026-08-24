@@ -10,7 +10,7 @@ Versioning follows [SemVer](https://semver.org) as described in
 
 ### Added
 
-- `bl llm FILE INSTRUCTION`: a local Kalosm frontend that turns a
+- `bl ai FILE INSTRUCTION`: a local Kalosm frontend that turns a
   natural-language prompt into blackline ops. Same pipeline as the
   standalone `blackline-llm` binary. Default model is quantized
   Phi-3.5 mini; `--model` selects a preset or a GGUF. DOCX ops apply

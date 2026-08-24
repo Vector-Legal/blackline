@@ -27,7 +27,7 @@ name = "bl"
 path = "src/bin/bl.rs"
 
 [features]
-# Kalosm is opt-in so `cargo install blackline` stays lean. `bl llm` always
+# Kalosm is opt-in so `cargo install blackline` stays lean. `bl ai` always
 # exists; without these features it prints the rebuild line and exits 2.
 #   cargo install blackline --features kalosm
 #   cargo install blackline --features kalosm,metal   # Apple Silicon
