@@ -36,7 +36,9 @@ default = []
 # kalosm-sample is a direct dep because the Parse/Schema derive macros
 # expand to `kalosm_sample::…` in this crate. A transitive dep is not enough.
 kalosm = ["dep:kalosm", "dep:kalosm-common", "dep:kalosm-sample", "dep:llm-samplers"]
-metal = ["kalosm", "kalosm/metal"]
+# `kalosm/metal` still compiles Candle's Metal backend, but `bl ai` forces
+# CPU: Kalosm on Metal returns "No token sampled" (all-NaN logits).
+metal = ["kalosm", "kalosm/metal", "dep:candle-core"]
 cuda = ["kalosm", "kalosm/cuda"]
 
 [dependencies]
@@ -53,6 +55,7 @@ kalosm = { version = "0.4", default-features = false, features = ["language", "l
 kalosm-common = { version = "0.4", optional = true }
 kalosm-sample = { version = "0.4", optional = true }
 llm-samplers = { version = "=0.0.7", optional = true }
+candle-core = { version = "0.8", optional = true }
 
 [dev-dependencies]
 assert_cmd = { workspace = true }

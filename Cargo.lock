@@ -344,6 +344,7 @@ dependencies = [
  "blackline-docx",
  "blackline-pptx",
  "blackline-xlsx",
+ "candle-core",
  "clap 4.6.6",
  "kalosm",
  "kalosm-common",

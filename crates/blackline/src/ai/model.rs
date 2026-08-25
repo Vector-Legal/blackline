@@ -279,8 +279,18 @@ pub async fn load(id: &ModelId, verbose: bool) -> Result<KalosmCompleter, AiErro
         super::cache::cache_dir()?.display()
     );
     let _ = verbose;
-    let llama = Llama::builder()
-        .with_source(source)
+    let mut builder = Llama::builder().with_source(source);
+    // Kalosm + Candle Metal yields all-NaN logits on Apple Silicon
+    // (`No token sampled`), even for TinyLlama 2k and a 25-line view.
+    // CPU is the path that actually emits a plan.
+    #[cfg(feature = "metal")]
+    {
+        builder = builder.with_device(candle_core::Device::Cpu);
+        eprintln!(
+            "device=cpu  (Kalosm Metal sampling is unusable; running on CPU)"
+        );
+    }
+    let llama = builder
         .build()
         .await
         .map_err(|e| AiError::Model(format!("failed to load {}: {e}", id.as_str())))?;

@@ -22,6 +22,10 @@ Versioning follows [SemVer](https://semver.org) as described in
 - Default AI view cap is 2500 characters (was 16k), so TinyLlama 2k
   and Phi-3 4k are not overstuffed. Use `--from` / `--to` for a
   specific clause.
+- `bl ai` on a `metal` build runs the model on CPU. Kalosm's Metal
+  backend returns `No token sampled` (NaN logits) even for TinyLlama
+  and a 25-line window. That is an upstream decoder bug, not RAM or
+  prompt size.
 
 ## [0.4.1] — 2026-08-25
 
