@@ -5,7 +5,7 @@
 all-features = true
 # Kalosm / Candle pull licences and crates the rest of the workspace does
 # not ship. `bl ai` enables them only behind `--features kalosm`.
-exclude = ["kalosm"]
+exclude = ["kalosm", "kalosm-common", "kalosm-sample"]
 
 [advisories]
 # Fail on any dependency with a filed RUSTSEC advisory.

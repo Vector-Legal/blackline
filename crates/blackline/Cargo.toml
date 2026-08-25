@@ -33,7 +33,9 @@ path = "src/bin/bl.rs"
 #   cargo install blackline --features kalosm,metal   # Apple Silicon
 #   cargo install blackline --features kalosm,cuda    # NVIDIA
 default = []
-kalosm = ["dep:kalosm"]
+# kalosm-sample is a direct dep because the Parse/Schema derive macros
+# expand to `kalosm_sample::…` in this crate. A transitive dep is not enough.
+kalosm = ["dep:kalosm", "dep:kalosm-common", "dep:kalosm-sample"]
 metal = ["kalosm", "kalosm/metal"]
 cuda = ["kalosm", "kalosm/cuda"]
 
@@ -47,7 +49,9 @@ serde = { workspace = true }
 serde_json = { workspace = true }
 thiserror = { workspace = true }
 tokio = { version = "1", features = ["rt-multi-thread", "macros"] }
-kalosm = { version = "0.4", default-features = false, features = ["language"], optional = true }
+kalosm = { version = "0.4", default-features = false, features = ["language", "llama"], optional = true }
+kalosm-common = { version = "0.4", optional = true }
+kalosm-sample = { version = "0.4", optional = true }
 
 [dev-dependencies]
 assert_cmd = { workspace = true }

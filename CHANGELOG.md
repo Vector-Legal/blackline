@@ -8,6 +8,14 @@ Versioning follows [SemVer](https://semver.org) as described in
 
 ## [Unreleased]
 
+### Fixed
+
+- `--features kalosm` (and `kalosm,metal` / `kalosm,cuda`) failed to
+  compile: Kalosm's `Parse` / `Schema` derives expand to
+  `kalosm_sample::…`, which must be a direct dependency, and the
+  `llama` feature must be on so `Llama` / `LlamaSource` exist.
+  Default `cargo install blackline` was never affected.
+
 ## [0.4.0] — 2026-08-25
 
 ### Added

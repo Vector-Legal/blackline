@@ -106,7 +106,8 @@ impl ModelId {
 /// unload API. The GGUF file stays in [`super::cache::cache_dir`].
 #[cfg(feature = "kalosm")]
 pub async fn load(id: &ModelId, verbose: bool) -> Result<KalosmCompleter, AiError> {
-    use kalosm::language::{Cache, FileSource, Llama, LlamaSource};
+    use kalosm::language::{FileSource, Llama, LlamaSource};
+    use kalosm_common::Cache;
 
     let source = match id {
         ModelId::Phi35 => LlamaSource::phi_3_5_mini_4k_instruct(),
@@ -151,7 +152,7 @@ impl super::plan::Completer for KalosmCompleter {
         instruction: &str,
     ) -> Result<super::plan::Plan, AiError> {
         use super::plan::{system_prompt, user_prompt, Plan};
-        use kalosm::language::ChatModelExt;
+        use kalosm::language::{ChatModelExt, Parse};
         use std::sync::Arc;
 
         let task = self
