@@ -168,8 +168,14 @@ fn insert_as_replace(
         return None;
     }
     for n in (2..=words.len()).rev() {
-        let prefix = words[..n].join(" ");
         let last = words[n - 1];
+        if !contentful_word(last) {
+            continue;
+        }
+        let prefix = words[..n]
+            .join(" ")
+            .trim_end_matches(|c: char| !c.is_alphanumeric())
+            .to_string();
         if let Some((idx, old)) = find_swap_ngram(lines, index, n, last, &prefix, claimed) {
             return Some((idx, old, prefix));
         }
@@ -235,11 +241,22 @@ fn word_key(s: &str) -> String {
 }
 
 fn is_short_leftover_phrase(text: &str) -> bool {
-    let words = text.split_whitespace().count();
-    if words == 0 || words > 6 {
+    let t = text.trim();
+    let words: Vec<&str> = t.split_whitespace().collect();
+    if words.is_empty() || words.len() > 6 {
         return false;
     }
-    !text.contains(['.', '?', '!'])
+    let core = t.trim_end_matches(['.', '?', '!']).trim();
+    if core.contains(['.', '?', '!']) {
+        return false;
+    }
+    let starts_capital = words[0].chars().next().is_some_and(|c| c.is_uppercase());
+    let ends_sentence = t.ends_with(['.', '?', '!']);
+    !(starts_capital && ends_sentence)
+}
+
+fn contentful_word(word: &str) -> bool {
+    word_key(word).chars().count() >= 4
 }
 
 fn snap_replace(
@@ -595,7 +612,23 @@ mod tests {
             ops: vec![Op::Insert {
                 index: 1,
                 position: Position::After,
-                text: "sixty days notice".into(),
+                text: "sixty days notice.".into(),
+            }],
+        };
+        snap_plan(&mut plan, &lines);
+        assert!(plan.ops.is_empty(), "{:?}", plan.ops);
+    }
+
+    #[test]
+    fn mashed_of_suffix_does_not_rewrite_unrelated_claims() {
+        let lines = vec![
+            "Indemnity covers third-party claims of intellectual property infringement.".into(),
+        ];
+        let mut plan = Plan {
+            ops: vec![Op::Insert {
+                index: 1,
+                position: Position::After,
+                text: "sixty days of invoice date.".into(),
             }],
         };
         snap_plan(&mut plan, &lines);
