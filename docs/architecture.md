@@ -249,7 +249,10 @@ prompt + numbered view (instruction hits, or --from/--to)  →  Plan JSON  →  
 
 `--from` / `--to` is optional. When omitted, `bl ai` searches the file
 for phrases in the instruction and only those hits plus a neighbor go
-to the model. Ops still carry the original 1-based view index.
+to the model. `every paragraph` / `throughout the document` walks the
+file in chunks. Prompt lines are abbreviated so the model copies a
+short `old`, not a whole legal paragraph. Ops still carry the original
+1-based view index.
 
 On macOS `--features metal` the runtime is llama.cpp Metal (all layers
 on the GPU). Elsewhere it is Kalosm (constrained `Plan`, JSON fallback).

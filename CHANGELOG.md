@@ -13,8 +13,10 @@ Versioning follows [SemVer](https://semver.org) as described in
 - `bl ai` no longer requires `--from` / `--to`. Phrases in the
   instruction (`change thirty days to sixty days`, quoted spans,
   `change title to …` as the first paragraph) select the numbered
-  view. Ops still use the real paragraph indexes so apply hits the
-  right span. `--from` / `--to` remains an explicit override.
+  view. `every paragraph` / `throughout the document` walks the file
+  in chunks. Prompt lines are abbreviated; ops use a short `old` and
+  the real paragraph index. `--from` / `--to` remains an explicit
+  override.
 
 ### Fixed
 

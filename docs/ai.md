@@ -114,16 +114,23 @@ set). The next `bl ai FILE INSTRUCTION` downloads again.
 
 Indexes are 1-based, the same space as `blackline docx view`. Applied
 through `Docx::track` unless `--no-track`. You do not have to pass
-`--from` / `--to`: `bl ai` searches the file for phrases in the
-instruction (`change thirty days to sixty days` looks up `thirty days`)
-and only those hits plus a neighbor go to the model. The op still uses
-the real paragraph index. `--from` / `--to` remains an explicit override.
+`--from` / `--to`:
+
+- `change thirty days to sixty days` looks up that phrase
+- `change title to …` is the first paragraph
+- `update every paragraph …` / `throughout the document` walks the
+  whole file in chunks (the GGUF stays loaded)
+
+Each prompt line is abbreviated. The model must copy a **short** `old`
+(a few words) and the number before `|` as `index` — not 1..N of the
+window, and not the whole paragraph. `--from` / `--to` remains an
+explicit override.
 
 ## Pipeline
 
 ```
 FILE + INSTRUCTION
-    → numbered view (instruction hits, or `--from`/`--to`)
+    → numbered view (instruction hits, document-wide chunks, or `--from`/`--to`)
     → JSON Plan (llama.cpp Metal, or Kalosm constrained / JSON)
     → blackline track / edit
     → package check

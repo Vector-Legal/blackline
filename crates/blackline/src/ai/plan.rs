@@ -215,10 +215,11 @@ pub fn system_prompt(format: Format) -> &'static str {
     match format {
         Format::Docx => {
             "You edit a Word document by emitting operations against the numbered view. \
-             Copy `old` / `anchor` / `text` spans exactly from the view. Indexes are 1-based. \
-             Only emit ops the instruction requires. Prefer replace over delete+insert. \
-             DOCX ops become Word tracked changes a lawyer can accept or reject. \
-             Do not invent indexes. If nothing must change, emit an empty ops list."
+             Each line is `INDEX| text`. Put INDEX in `index` — it is the number before |, \
+             not 1..N of this window. Copy a short `old`/`anchor` (a few words from the \
+             visible text). Never paste a whole paragraph and never copy an ellipsis (…). \
+             For capitalization, replace only the first word. Prefer replace. \
+             DOCX ops become Word tracked changes. Empty ops list if nothing must change."
         }
         Format::Xlsx => {
             "You edit an Excel workbook by emitting set_cell operations. \
@@ -241,9 +242,19 @@ pub fn user_prompt(view: &super::view::DocumentView, instruction: &str) -> Strin
 /// Extra line when the model is not token-constrained (Metal).
 pub fn json_output_instruction() -> &'static str {
     " Reply with one JSON object {\"ops\":[...]} and nothing else. \
-     Example: {\"ops\":[{\"op\":\"replace\",\"index\":1,\"old\":\"Hello\",\"new\":\"Hi\"}]} \
+     index is the number before | on the line. old/new are a few words, not the whole line. \
+     Example: {\"ops\":[{\"op\":\"replace\",\"index\":21,\"old\":\"Customer\",\"new\":\"CUSTOMER\"}]} \
      or {\"ops\":[]}."
 }
+
+/// True when `text` contains a fully closed top-level JSON object.
+pub(crate) fn json_object_complete(text: &str) -> bool {
+    extract_json_object(text).is_some()
+}
+
+/// New tokens for a plan. Also the hard stop; generation should stop
+/// earlier once [`json_object_complete`] is true.
+pub(crate) const PLAN_MAX_TOKENS: u32 = 768;
 
 /// Parse a [`Plan`] from model text. Accepts a bare object or one wrapped
 /// in prose / a markdown fence.
@@ -253,6 +264,13 @@ pub fn parse_plan_json(text: &str) -> Result<Plan, AiError> {
         return Ok(plan);
     }
     let Some(json) = extract_json_object(trimmed) else {
+        if trimmed.contains('{') {
+            return Err(AiError::Model(format!(
+                "model cut off mid-JSON (generation cap). \
+                 Keep `old`/`new` to a few words, not the whole paragraph. got: {}",
+                truncate_for_error(trimmed)
+            )));
+        }
         return Err(AiError::Model(format!(
             "model did not emit a plan object. got: {}",
             truncate_for_error(trimmed)
@@ -340,6 +358,7 @@ mod tests {
         let user = user_prompt(&view, "change hello");
         assert!(user.contains("hello"));
         assert!(user.contains("change hello"));
+        assert!(user.contains("INDEX"));
     }
 
     #[test]
@@ -358,5 +377,12 @@ mod tests {
     fn parse_plan_rejects_garbage() {
         let err = super::parse_plan_json("I cannot do that.").unwrap_err();
         assert!(err.to_string().contains("did not emit a plan"));
+        let cut = super::parse_plan_json(
+            r#"{"ops":[{"op":"replace","index":1,"old":"H4: Customer shall own"#,
+        )
+        .unwrap_err();
+        assert!(cut.to_string().contains("mid-JSON"), "{cut}");
+        assert!(super::json_object_complete(r#"{"ops":[]}"#));
+        assert!(!super::json_object_complete(r#"{"ops":[{"op":"replace""#));
     }
 }

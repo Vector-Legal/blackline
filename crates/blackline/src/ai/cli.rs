@@ -24,8 +24,9 @@ pub const AFTER_HELP: &str = "The model never writes OOXML. It emits a small op 
         `bl ai --clear-cache` deletes the GGUFs.\n\n\
         You do not pass paragraph indexes. Phrases in the instruction select\n\
         the view (`change thirty days to sixty days` looks up that text;\n\
-        `change title to …` is the first paragraph). `--from` / `--to` is an\n\
-        optional override, same index space as `bl docx view`.\n\n\
+        `change title to …` is the first paragraph). `every paragraph` /\n\
+        `throughout the document` walks the file in chunks. `--from` / `--to`\n\
+        is an optional override, same index space as `bl docx view`.\n\n\
         Examples:\n  \
         bl ai contract.docx \"change thirty days to sixty days\" -o out.docx --author \"Jane Doe\"\n  \
         bl ai model.xlsx \"set B2 to 42\" --in-place --model llama3.2-1b\n  \
@@ -135,26 +136,32 @@ async fn run_cli(cli: AiArgs) -> Result<(), AiError> {
     let author = resolve_author(cli.author.as_deref())?;
     let model_id = ModelId::parse(&cli.model)?;
 
-    let view = DocumentView::open(
+    let views = DocumentView::windows(
         file,
         cli.from,
         cli.to,
         cli.sheet.as_deref(),
         Some(instruction.as_str()),
     )?;
-    let view_chars: usize = view.lines.iter().map(|l| l.len() + 1).sum();
+    let view_lines: usize = views.iter().map(|v| v.lines.len()).sum();
+    let prompt_chars: usize = views.iter().map(DocumentView::prompt_chars).sum();
+    let window = views
+        .first()
+        .map(|v| v.window.as_str())
+        .filter(|s| !s.is_empty());
     eprintln!(
-        "view {} line(s)  {} chars{}",
-        view.lines.len(),
-        view_chars,
-        if view.window.is_empty() {
-            String::new()
-        } else {
-            format!("  {}", view.window)
-        }
+        "view {} line(s) in {} chunk(s)  {} prompt chars{}",
+        view_lines,
+        views.len(),
+        prompt_chars,
+        window.map(|w| format!("  {w}")).unwrap_or_default()
     );
 
-    if view.format == super::format::Format::Docx && !cli.no_track && author.is_none() {
+    let format = views
+        .first()
+        .expect("windows always returns at least one view")
+        .format;
+    if format == super::format::Format::Docx && !cli.no_track && author.is_none() {
         return Err(AiError::usage(
             "author required: tracked changes and comments must carry an explicit author \
              (pass --author or set BLACKLINE_AUTHOR)"
@@ -162,7 +169,7 @@ async fn run_cli(cli: AiArgs) -> Result<(), AiError> {
         ));
     }
 
-    let plan = complete_with_model(&model_id, &view, &instruction, cli.verbose).await?;
+    let plan = complete_with_model(&model_id, &views, &instruction, cli.verbose).await?;
 
     let opts = ApplyOptions {
         author,
@@ -179,7 +186,7 @@ async fn run_cli(cli: AiArgs) -> Result<(), AiError> {
     };
 
     let report = AiReport {
-        format: view.format,
+        format,
         model: model_id.as_str(),
         plan,
         apply: apply_report,
@@ -215,14 +222,14 @@ fn print_clear(json: bool) -> Result<(), AiError> {
 
 async fn complete_with_model(
     id: &ModelId,
-    view: &DocumentView,
+    views: &[DocumentView],
     instruction: &str,
     verbose: bool,
 ) -> Result<Plan, AiError> {
     #[cfg(feature = "kalosm")]
     {
         let completer = super::model::load(id, verbose).await?;
-        let plan = completer.complete(view, instruction).await?;
+        let plan = completer.complete_views(views, instruction).await?;
         // Drop the runtime (llama.cpp context or Kalosm worker) before
         // the package write. The GGUF on disk is unchanged; use
         // `--clear-cache`.
@@ -234,7 +241,7 @@ async fn complete_with_model(
     }
     #[cfg(not(feature = "kalosm"))]
     {
-        let _ = (id, view, instruction, verbose);
+        let _ = (id, views, instruction, verbose);
         Err(AiError::usage(
             "this binary was built without Kalosm. Rebuild with --features kalosm:\n  \
              cargo install blackline --features kalosm\n  \

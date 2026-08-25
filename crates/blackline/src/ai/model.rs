@@ -115,7 +115,7 @@ const SAFE_CONTEXT: u32 = 8192;
 /// New tokens for a JSON plan. Also the hard stop so a run cannot
 /// go forever (`GenerationParameters` defaults to `u32::MAX`).
 #[cfg(all(feature = "kalosm", not(all(feature = "metal", target_os = "macos"))))]
-const PLAN_MAX_TOKENS: u32 = 256;
+const PLAN_MAX_TOKENS: u32 = super::plan::PLAN_MAX_TOKENS;
 
 /// Context we actually allocate (llama.cpp Metal, and the refuse
 /// threshold for Kalosm).
@@ -416,51 +416,88 @@ impl super::plan::Completer for KalosmCompleter {
         view: &super::view::DocumentView,
         instruction: &str,
     ) -> Result<super::plan::Plan, AiError> {
-        use super::plan::user_prompt;
+        self.complete_views(std::slice::from_ref(view), instruction)
+            .await
+    }
+}
 
-        let user = user_prompt(view, instruction);
+#[cfg(feature = "kalosm")]
+impl KalosmCompleter {
+    /// One or more views (chunks of a long file) → one merged plan.
+    /// Metal loads the GGUF once for the whole batch.
+    pub async fn complete_views(
+        &self,
+        views: &[super::view::DocumentView],
+        instruction: &str,
+    ) -> Result<super::plan::Plan, AiError> {
+        use super::plan::Plan;
+
+        if views.is_empty() {
+            return Ok(Plan::default());
+        }
 
         #[cfg(all(feature = "metal", target_os = "macos"))]
         {
-            use super::plan::{json_output_instruction, parse_plan_json, system_prompt};
+            use super::plan::{
+                json_output_instruction, parse_plan_json, system_prompt, user_prompt,
+            };
 
-            let system = format!(
-                "{}{}",
-                system_prompt(view.format),
-                json_output_instruction()
-            );
+            let jobs: Vec<(String, String)> = views
+                .iter()
+                .map(|view| {
+                    let system = format!(
+                        "{}{}",
+                        system_prompt(view.format),
+                        json_output_instruction()
+                    );
+                    (system, user_prompt(view, instruction))
+                })
+                .collect();
             let gguf = self.gguf.clone();
             let n_ctx = self.context_length;
-            let text = tokio::task::spawn_blocking(move || {
-                super::metal_infer::complete(&gguf, &system, &user, n_ctx)
+            let texts = tokio::task::spawn_blocking(move || {
+                super::metal_infer::complete_many(&gguf, &jobs, n_ctx)
             })
             .await
             .map_err(|e| AiError::Model(format!("llama.cpp worker: {e}")))??;
-            return parse_plan_json(&text);
+            let mut plan = Plan::default();
+            for text in texts {
+                plan.ops.extend(parse_plan_json(&text)?.ops);
+            }
+            return Ok(plan);
         }
 
         #[cfg(not(all(feature = "metal", target_os = "macos")))]
         {
-            use super::plan::{system_prompt, Plan};
+            use super::plan::{system_prompt, user_prompt};
             use kalosm::language::{ChatModelExt, Parse};
             use llm_samplers::prelude::SampleGreedy;
             use std::sync::Arc;
 
-            let task = self
-                .llama
-                .task(system_prompt(view.format))
-                .with_constraints(Arc::new(Plan::new_parser()));
-            match task.run(&user).with_sampler(SampleGreedy::new()).await {
-                Ok(plan) => Ok(plan),
-                Err(e) => {
-                    let msg = e.to_string();
-                    if msg.contains("No valid tokens") || msg.contains("weight is invalid") {
-                        complete_json(&self.llama, view, &user).await
-                    } else {
-                        Err(AiError::Model(map_model_error(msg)))
+            let mut plan = Plan::default();
+            for (i, view) in views.iter().enumerate() {
+                if views.len() > 1 {
+                    eprintln!("planning chunk {}/{}", i + 1, views.len());
+                }
+                let user = user_prompt(view, instruction);
+                let task = self
+                    .llama
+                    .task(system_prompt(view.format))
+                    .with_constraints(Arc::new(Plan::new_parser()));
+                match task.run(&user).with_sampler(SampleGreedy::new()).await {
+                    Ok(part) => plan.ops.extend(part.ops),
+                    Err(e) => {
+                        let msg = e.to_string();
+                        if msg.contains("No valid tokens") || msg.contains("weight is invalid") {
+                            plan.ops
+                                .extend(complete_json(&self.llama, view, &user).await?.ops);
+                        } else {
+                            return Err(AiError::Model(map_model_error(msg)));
+                        }
                     }
                 }
             }
+            Ok(plan)
         }
     }
 }

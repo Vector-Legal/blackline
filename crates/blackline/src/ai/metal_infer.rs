@@ -19,12 +19,10 @@ use llama_cpp_2::token::LlamaToken;
 use llama_cpp_2::{send_logs_to_tracing, LogOptions, TokenToStringError};
 
 use super::error::AiError;
+use super::plan::{json_object_complete, PLAN_MAX_TOKENS};
 
 /// Offload every transformer layer to Metal.
 const GPU_LAYERS: u32 = 999;
-
-/// New tokens for a plan. The object is small; this is also the hard stop.
-pub(crate) const PLAN_MAX_TOKENS: u32 = 256;
 
 /// KV / RoPE size we actually allocate. Independent of GGUF metadata.
 pub(crate) const INFER_CONTEXT: u32 = 4096;
@@ -64,19 +62,55 @@ pub(crate) fn complete(
     user: &str,
     context_length: u32,
 ) -> Result<String, AiError> {
+    let mut texts = complete_many(
+        gguf,
+        &[(system.to_string(), user.to_string())],
+        context_length,
+    )?;
+    texts
+        .pop()
+        .ok_or_else(|| AiError::Model("llama.cpp produced no text".into()))
+}
+
+/// Load the GGUF once and run several prompts. Used when a document-wide
+/// instruction is split into view chunks.
+pub(crate) fn complete_many(
+    gguf: &Path,
+    jobs: &[(String, String)],
+    context_length: u32,
+) -> Result<Vec<String>, AiError> {
+    if jobs.is_empty() {
+        return Ok(Vec::new());
+    }
     let backend = backend()?;
     let params = LlamaModelParams::default().with_n_gpu_layers(GPU_LAYERS);
     let model = LlamaModel::load_from_file(backend, gguf, &params)
         .map_err(|e| AiError::Model(format!("llama.cpp failed to load {}: {e}", gguf.display())))?;
-
     let n_ctx = context_length.clamp(512, INFER_CONTEXT);
+    let mut out = Vec::with_capacity(jobs.len());
+    for (i, (system, user)) in jobs.iter().enumerate() {
+        if jobs.len() > 1 {
+            eprintln!("planning chunk {}/{}", i + 1, jobs.len());
+        }
+        out.push(generate(&model, backend, system, user, n_ctx)?);
+    }
+    Ok(out)
+}
+
+fn generate(
+    model: &LlamaModel,
+    backend: &LlamaBackend,
+    system: &str,
+    user: &str,
+    n_ctx: u32,
+) -> Result<String, AiError> {
     let ctx_params = LlamaContextParams::default()
         .with_n_ctx(Some(NonZeroU32::new(n_ctx).expect("n_ctx >= 512")));
     let mut ctx = model
         .new_context(backend, ctx_params)
         .map_err(|e| AiError::Model(format!("llama.cpp context failed: {e}")))?;
 
-    let prompt = chat_prompt(&model, system, user)?;
+    let prompt = chat_prompt(model, system, user)?;
     let tokens = model
         .str_to_token(&prompt, AddBos::Never)
         .map_err(|e| AiError::Model(format!("tokenize failed: {e}")))?;
@@ -111,7 +145,10 @@ pub(crate) fn complete(
         if model.is_eog_token(token) {
             break;
         }
-        out.push_str(&token_piece(&model, token));
+        out.push_str(&token_piece(model, token));
+        if json_object_complete(&out) {
+            break;
+        }
         batch.clear();
         batch
             .add(token, n_cur, &[0], true)

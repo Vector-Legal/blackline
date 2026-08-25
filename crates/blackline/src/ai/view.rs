@@ -3,7 +3,7 @@
 //! The model still addresses 1-based indexes, but the user does not have to
 //! pass `--from` / `--to`. When those flags are omitted, phrases from the
 //! instruction are searched in the full file and only those hits (plus a
-//! neighbor) go into the prompt.
+//! neighbor) go into the prompt. `every paragraph` walks the file in chunks.
 
 use std::collections::BTreeSet;
 use std::path::Path;
@@ -17,8 +17,13 @@ use super::format::Format;
 
 /// Soft cap on characters stuffed into the prompt. TinyLlama is 2k tokens
 /// and Phi-3 is 4k. A long file is windowed to instruction hits first;
-/// `--from` / `--to` is the explicit override.
+/// document-wide instructions walk the file in chunks. `--from` / `--to`
+/// is the explicit override.
 pub const CONTEXT_CHARS: usize = 2_500;
+
+/// Prompt lines are abbreviated so a 2k-character legal paragraph does
+/// not eat the whole window and tempt the model to copy it into `old`.
+pub const PROMPT_LINE_CHARS: usize = 120;
 
 /// Paragraphs kept on each side of an instruction hit.
 const HIT_PAD: usize = 1;
@@ -47,6 +52,22 @@ impl DocumentView {
         sheet: Option<&str>,
         instruction: Option<&str>,
     ) -> Result<Self, AiError> {
+        Ok(Self::windows(path, from, to, sheet, instruction)?
+            .into_iter()
+            .next()
+            .expect("windows always returns at least one view"))
+    }
+
+    /// Same as [`open`], but a document-wide instruction (or a hit list
+    /// that does not fit in one prompt) is split into chunks instead of
+    /// dropping later paragraphs.
+    pub fn windows(
+        path: &Path,
+        from: Option<usize>,
+        to: Option<usize>,
+        sheet: Option<&str>,
+        instruction: Option<&str>,
+    ) -> Result<Vec<Self>, AiError> {
         let format = Format::from_path(path)?;
         if !path.is_file() {
             return Err(AiError::missing(path.to_path_buf()));
@@ -56,38 +77,51 @@ impl DocumentView {
             Format::Xlsx => view_xlsx(path, sheet)?,
             Format::Pptx => view_pptx(path)?,
         };
-        let mut window = String::new();
+        let mut note = String::new();
+        let mut walk_all = from.is_some() || to.is_some();
         if from.is_some() || to.is_some() {
             slice_lines(&mut lines, from, to);
-            window = "explicit --from/--to".into();
+            note = "explicit --from/--to".into();
         } else if let Some(instruction) = instruction {
-            if let Some(note) = window_from_instruction(&mut lines, instruction) {
-                window = note;
+            if is_global_instruction(instruction) {
+                note = "document-wide instruction".into();
+                walk_all = true;
+            } else if let Some(w) = window_from_instruction(&mut lines, instruction) {
+                note = w;
+                walk_all = true;
+            } else {
+                note = "prefix — no phrase from the instruction was found".into();
             }
         }
-        let truncated = truncate_chars(&mut lines, CONTEXT_CHARS);
-        if truncated && window.is_empty() {
-            window = "prefix — no phrase from the instruction was found".into();
-        } else if truncated && window == "explicit --from/--to" {
-            window = "explicit --from/--to, still over the prompt budget".into();
+        let mut views = pack_windows(format, lines, note);
+        if !walk_all && views.len() > 1 {
+            views.truncate(1);
         }
-        Ok(Self {
-            format,
-            lines,
-            truncated,
-            window,
-        })
+        Ok(views)
+    }
+
+    /// Characters that will actually go into the prompt (abbreviated).
+    pub fn prompt_chars(&self) -> usize {
+        self.lines
+            .iter()
+            .map(|line| abbreviate_line(line, PROMPT_LINE_CHARS).len() + 1)
+            .sum()
     }
 
     /// Prompt block: format header plus numbered lines.
     pub fn render(&self) -> String {
         let mut out = String::new();
-        out.push_str(&format!("# {} ({} lines)\n", self.format, self.lines.len()));
+        out.push_str(&format!(
+            "# {} ({} lines; INDEX is the number before |, not 1..{})\n",
+            self.format,
+            self.lines.len(),
+            self.lines.len()
+        ));
         if !self.window.is_empty() {
             out.push_str(&format!("# window: {}\n", self.window));
         }
         for line in &self.lines {
-            out.push_str(line);
+            out.push_str(&abbreviate_line(line, PROMPT_LINE_CHARS));
             out.push('\n');
         }
         out
@@ -123,6 +157,85 @@ fn view_pptx(path: &Path) -> Result<Vec<String>, AiError> {
         }
     }
     Ok(lines)
+}
+
+fn pack_windows(format: Format, lines: Vec<String>, note: String) -> Vec<DocumentView> {
+    if lines.is_empty() {
+        return vec![DocumentView {
+            format,
+            lines,
+            truncated: false,
+            window: note,
+        }];
+    }
+    let mut groups: Vec<Vec<String>> = Vec::new();
+    let mut cur: Vec<String> = Vec::new();
+    let mut used = 0usize;
+    for line in lines {
+        let cost = abbreviate_line(&line, PROMPT_LINE_CHARS).len() + 1;
+        if !cur.is_empty() && used.saturating_add(cost) > CONTEXT_CHARS {
+            groups.push(std::mem::take(&mut cur));
+            used = 0;
+        }
+        used = used.saturating_add(cost);
+        cur.push(line);
+    }
+    if !cur.is_empty() {
+        groups.push(cur);
+    }
+    let n = groups.len();
+    groups
+        .into_iter()
+        .enumerate()
+        .map(|(i, lines)| {
+            let window = if n > 1 && !note.is_empty() {
+                format!("{note}  chunk {}/{n}", i + 1)
+            } else if n > 1 {
+                format!("chunk {}/{n}", i + 1)
+            } else {
+                note.clone()
+            };
+            DocumentView {
+                format,
+                lines,
+                truncated: n > 1,
+                window,
+            }
+        })
+        .collect()
+}
+
+/// `every paragraph` / `throughout the document` — walk the whole file.
+pub(crate) fn is_global_instruction(instruction: &str) -> bool {
+    let s = instruction.to_ascii_lowercase();
+    let every = s.contains("every ")
+        || s.contains("each ")
+        || s.contains("all paragraph")
+        || s.contains("all clause")
+        || s.contains("all heading")
+        || s.contains("throughout")
+        || s.contains("whole document")
+        || s.contains("entire document");
+    every
+        && (s.contains("paragraph")
+            || s.contains("clause")
+            || s.contains("heading")
+            || s.contains("document")
+            || s.contains("line")
+            || s.contains("cell")
+            || s.contains("row"))
+}
+
+fn abbreviate_line(line: &str, max: usize) -> String {
+    if max == 0 {
+        return String::new();
+    }
+    if line.chars().count() <= max {
+        return line.to_string();
+    }
+    let mut out: String = line.chars().take(max.saturating_sub(1)).collect();
+    out.push('…');
+    out
 }
 
 fn slice_lines(lines: &mut Vec<String>, from: Option<usize>, to: Option<usize>) {
@@ -251,7 +364,9 @@ pub(crate) fn needles_from_instruction(instruction: &str) -> Vec<String> {
     }
     if out.is_empty() {
         for word in instruction.split(|c: char| !c.is_alphanumeric() && c != '-') {
-            if word.len() >= 4 && !is_skip(word) {
+            // Short leftover tokens (`every`, `first`, `have`) are not
+            // content. They used to select random clauses.
+            if word.len() >= 6 && !is_skip(word) {
                 push_unique(&mut out, word.to_string());
             }
         }
@@ -347,6 +462,42 @@ fn is_skip(word: &str) -> bool {
             | "insert"
             | "delete"
             | "flag"
+            | "every"
+            | "each"
+            | "have"
+            | "first"
+            | "caps"
+            | "capital"
+            | "capitalize"
+            | "uppercase"
+            | "lowercase"
+            | "entire"
+            | "whole"
+            | "throughout"
+            | "paragraphs"
+            | "clauses"
+            | "headings"
+            | "them"
+            | "their"
+            | "then"
+            | "also"
+            | "just"
+            | "only"
+            | "been"
+            | "being"
+            | "will"
+            | "shall"
+            | "must"
+            | "here"
+            | "there"
+            | "about"
+            | "would"
+            | "could"
+            | "should"
+            | "these"
+            | "those"
+            | "after"
+            | "before"
     )
 }
 
@@ -373,9 +524,11 @@ fn truncate_chars(lines: &mut Vec<String>, budget: usize) -> bool {
 #[cfg(test)]
 mod tests {
     use super::{
-        change_pair, expand_hits, hit_indices, needles_from_instruction, truncate_chars,
-        window_from_instruction, DocumentView,
+        abbreviate_line, change_pair, expand_hits, hit_indices, is_global_instruction,
+        needles_from_instruction, pack_windows, truncate_chars, window_from_instruction,
+        DocumentView,
     };
+    use crate::ai::format::Format;
     use blackline_docx::Docx;
 
     #[test]
@@ -523,5 +676,81 @@ mod tests {
         assert!(view.lines.iter().any(|l| l.starts_with("1|")));
         assert!(view.lines.iter().any(|l| l.contains("SaaS Agreement")));
         assert!(!view.lines.iter().any(|l| l.contains("Signature")));
+    }
+
+    #[test]
+    fn every_paragraph_is_global_and_has_no_needles() {
+        let inst = "update every paragraph to have all caps first";
+        assert!(is_global_instruction(inst));
+        assert!(
+            needles_from_instruction(inst).is_empty(),
+            "{:?}",
+            needles_from_instruction(inst)
+        );
+        assert!(!is_global_instruction("change thirty days to sixty days"));
+    }
+
+    #[test]
+    fn abbreviate_keeps_index_prefix() {
+        let line = format!(
+            "21| {}",
+            "Customer shall own all right, title and interest. ".repeat(8)
+        );
+        let short = abbreviate_line(&line, 80);
+        assert!(short.starts_with("21| "));
+        assert!(short.ends_with('…'));
+        assert!(short.chars().count() <= 80);
+    }
+
+    #[test]
+    fn pack_windows_does_not_drop_later_indexes() {
+        let lines: Vec<String> = (1..=24)
+            .map(|i| format!("{i}| {}", "x".repeat(160)))
+            .collect();
+        let views = pack_windows(Format::Docx, lines, "document-wide instruction".into());
+        assert!(views.len() >= 2, "{}", views.len());
+        let last = views.last().unwrap();
+        assert!(
+            last.lines.iter().any(|l| l.starts_with("24|")),
+            "{:?}",
+            last.lines
+        );
+        assert!(last.window.contains("chunk"));
+    }
+
+    #[test]
+    fn open_every_paragraph_walks_the_file() {
+        let dir = tempfile::TempDir::new().unwrap();
+        let path = dir.path().join("c.docx");
+        let paras: Vec<String> = (1..=24)
+            .map(|i| format!("Paragraph {i} {}", "word ".repeat(40)))
+            .collect();
+        let refs: Vec<&str> = paras.iter().map(String::as_str).collect();
+        Docx::from_paragraphs(&refs).unwrap().save(&path).unwrap();
+        let views = DocumentView::windows(
+            &path,
+            None,
+            None,
+            None,
+            Some("update every paragraph to have all caps first"),
+        )
+        .unwrap();
+        assert!(
+            views[0].window.contains("document-wide"),
+            "{}",
+            views[0].window
+        );
+        let n: usize = views.iter().map(|v| v.lines.len()).sum();
+        assert!(
+            n >= 24,
+            "{n} {:?}",
+            views.iter().map(|v| v.lines.len()).collect::<Vec<_>>()
+        );
+        assert!(views
+            .last()
+            .unwrap()
+            .lines
+            .iter()
+            .any(|l| l.contains("Paragraph 24")));
     }
 }
