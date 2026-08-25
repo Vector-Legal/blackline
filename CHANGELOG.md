@@ -19,6 +19,8 @@ Versioning follows [SemVer](https://semver.org) as described in
   to a span that exists in the paragraph (Phi-3 otherwise concatenates
   several `N|` lines and copies a prompt ellipsis). A mashed
   `Customer: | Contact:` replace expands to one op per field.
+  A Word table is one view index: several replaces on that index are
+  kept, and a leftover `Contact:` aimed at the next paragraph is dropped.
   Prompt lines are
   abbreviated without `…`. Ops use a short `old` and the real
   paragraph index. `--from` / `--to` remains an explicit override.

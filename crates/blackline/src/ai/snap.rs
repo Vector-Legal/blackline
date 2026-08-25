@@ -17,11 +17,9 @@ pub(crate) fn snap_plan(plan: &mut Plan, lines: &[String]) {
     for op in std::mem::take(&mut plan.ops) {
         match op {
             Op::Replace { index, old, new } => {
-                let snapped = expand_replace(lines, index, &old, &new, &mut claimed);
-                if snapped.is_empty() {
-                    out.push(Op::Replace { index, old, new });
-                } else {
-                    out.extend(snapped);
+                match expand_replace(lines, index, &old, &new, &mut claimed) {
+                    SnapOutcome::Keep => out.push(Op::Replace { index, old, new }),
+                    SnapOutcome::Replace(ops) => out.extend(ops),
                 }
             }
             other => out.push(other),
@@ -30,22 +28,31 @@ pub(crate) fn snap_plan(plan: &mut Plan, lines: &[String]) {
     plan.ops = out;
 }
 
+/// A Word table is one view index whose prompt text joins cells with ` | `.
+/// Several replaces on that index are valid; a leftover op with the wrong
+/// paragraph number is not.
+enum SnapOutcome {
+    Keep,
+    Replace(Vec<Op>),
+}
+
 fn expand_replace(
     lines: &[String],
     index: u32,
     old: &str,
     new: &str,
-    claimed: &mut BTreeSet<u32>,
-) -> Vec<Op> {
+    claimed: &mut BTreeSet<(u32, String)>,
+) -> SnapOutcome {
     let old_clean = strip_prompt_junk(old);
     let new_clean = strip_prompt_junk(new);
     let old_parts = split_mashed(&old_clean);
     if old_parts.is_empty() {
-        return Vec::new();
+        return SnapOutcome::Keep;
     }
     let new_parts = split_mashed(&new_clean);
     let mut ops = Vec::new();
     let mut cursor = index;
+    let mut duplicate = false;
     for (i, part) in old_parts.iter().enumerate() {
         let model_new = new_parts.get(i).map(String::as_str).unwrap_or("");
         for needle in needles_for_part(lines, cursor, part) {
@@ -53,7 +60,9 @@ fn expand_replace(
             else {
                 continue;
             };
-            if !claimed.insert(idx) {
+            let key = (idx, actual.to_lowercase());
+            if !claimed.insert(key) {
+                duplicate = true;
                 continue;
             }
             ops.push(Op::Replace {
@@ -61,10 +70,16 @@ fn expand_replace(
                 old: actual,
                 new: rewritten,
             });
-            cursor = idx.saturating_add(1);
+            cursor = idx;
         }
     }
-    ops
+    if ops.is_empty() {
+        if duplicate {
+            return SnapOutcome::Replace(Vec::new());
+        }
+        return SnapOutcome::Keep;
+    }
+    SnapOutcome::Replace(ops)
 }
 
 fn needles_for_part(lines: &[String], index: u32, part: &str) -> Vec<String> {
@@ -271,6 +286,7 @@ mod tests {
                 (3, "Contact:".into(), "CONTACT:".into()),
                 (4, "Address:".into(), "ADDRESS:".into()),
                 (5, "Phone:".into(), "PHONE:".into()),
+                (5, "E-Mail:".into(), "E-MAIL:".into()),
                 (6, "Services:".into(), "SERVICES:".into()),
             ]
         );
@@ -291,6 +307,42 @@ mod tests {
             vec![
                 (2, "Customer:".into(), "CUSTOMER:".into()),
                 (3, "Contact:".into(), "CONTACT:".into()),
+            ]
+        );
+    }
+
+    /// YC header is one `w:tbl` (one view index). Phi-3 still emits
+    /// `Contact:` against the next paragraph; that leftover must drop.
+    #[test]
+    fn table_row_keeps_each_field_and_drops_wrong_index() {
+        let table = "Customer: | Contact: / | Address: | Phone: / E-Mail: / | Services: [Name]";
+        let lines = vec![
+            "SaaS Services Order Form".into(),
+            table.into(),
+            "This SaaS Services Agreement is entered into".into(),
+        ];
+        let mut plan = Plan {
+            ops: vec![
+                Op::Replace {
+                    index: 2,
+                    old: "Customer: | Contact: / Address: | Phone: ____…".into(),
+                    new: "CUSTOMER: | CONTACT: / ADDRESS: | PHONE: ____…".into(),
+                },
+                Op::Replace {
+                    index: 3,
+                    old: "Contact:".into(),
+                    new: "CONTACT:".into(),
+                },
+            ],
+        };
+        snap_plan(&mut plan, &lines);
+        assert_eq!(
+            replace_triples(&plan),
+            vec![
+                (2, "Customer:".into(), "CUSTOMER:".into()),
+                (2, "Contact:".into(), "CONTACT:".into()),
+                (2, "Address:".into(), "ADDRESS:".into()),
+                (2, "Phone:".into(), "PHONE:".into()),
             ]
         );
     }
