@@ -6,6 +6,11 @@ use serde::{Deserialize, Serialize};
 use super::error::AiError;
 use super::format::Format;
 
+// The Parse/Schema derives expand to `kalosm_sample::…`. Keep the crate
+// linked when the feature is on (Cargo.toml: kalosm = ["dep:kalosm-sample"]).
+#[cfg(feature = "kalosm")]
+use kalosm_sample as _;
+
 /// A batch of ops. Constrained generation (Kalosm `Parse`) targets this type
 /// so the model cannot drift into free prose.
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
