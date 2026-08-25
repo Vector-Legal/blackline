@@ -35,6 +35,9 @@ Versioning follows [SemVer](https://semver.org) as described in
   is not. An `of` n-gram does not rewrite unrelated `claims of`
   text. A real sentence still inserts at the end of the paragraph,
   so one bad op no longer aborts the batch.
+  Replace snap only walks a few neighboring lines, not the rest of
+  the file. An all-caps insert of a sentence becomes a first-word
+  replace so `all caps first` does not append a duplicate clause.
   Prompt lines are
   abbreviated without `…`. Ops use a short `old` and the real
   paragraph index. `--from` / `--to` remains an explicit override.

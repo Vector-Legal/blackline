@@ -143,6 +143,17 @@ fn snap_insert(
             new,
         });
     }
+    if let Some((idx, old, new)) = all_caps_insert_as_replace(lines, index, &text) {
+        let key = (idx, old.to_lowercase());
+        if !claimed.insert(key) {
+            return None;
+        }
+        return Some(Op::Replace {
+            index: idx,
+            old,
+            new,
+        });
+    }
     if is_short_leftover_phrase(&text) {
         return None;
     }
@@ -259,6 +270,40 @@ fn contentful_word(word: &str) -> bool {
     word_key(word).chars().count() >= 4
 }
 
+/// All-caps insert of a sentence is Phi-3 doing `all caps first` as a
+/// duplicate paragraph. Promote it to a first-word replace on the target
+/// line so the original clause is not appended in caps.
+fn all_caps_insert_as_replace(
+    lines: &[String],
+    index: u32,
+    text: &str,
+) -> Option<(u32, String, String)> {
+    if !is_all_caps_text(text) {
+        return None;
+    }
+    let i = usize::try_from(index).ok()?.checked_sub(1)?;
+    let first = first_word(line_body(lines.get(i)?))?;
+    if first.is_empty() {
+        return None;
+    }
+    Some((index, first.clone(), first.to_uppercase()))
+}
+
+fn is_all_caps_text(s: &str) -> bool {
+    let letters: String = s.chars().filter(|c| c.is_alphabetic()).collect();
+    !letters.is_empty() && letters.chars().all(|c| c.is_uppercase())
+}
+
+fn first_word(s: &str) -> Option<String> {
+    let raw = s.split_whitespace().next()?;
+    let trimmed = raw.trim_end_matches(|c: char| !c.is_alphanumeric());
+    if trimmed.is_empty() {
+        None
+    } else {
+        Some(trimmed.to_string())
+    }
+}
+
 fn snap_replace(
     lines: &[String],
     index: u32,
@@ -287,6 +332,10 @@ fn leading_label(s: &str) -> String {
     s.to_string()
 }
 
+/// How far a mashed `Customer: | Contact:` replace may walk.
+const LOCATE_FORWARD: usize = 8;
+const LOCATE_BACK: usize = 2;
+
 fn locate(lines: &[String], index: u32, needle: &str) -> Option<(u32, String)> {
     if let Some(i) = usize::try_from(index).ok().and_then(|n| n.checked_sub(1)) {
         if let Some(line) = lines.get(i) {
@@ -296,14 +345,12 @@ fn locate(lines: &[String], index: u32, needle: &str) -> Option<(u32, String)> {
         }
     }
     let start = usize::try_from(index.saturating_sub(1)).unwrap_or(0);
-    for (i, line) in lines.iter().enumerate().skip(start) {
-        if let Some(matched) = match_in(line_body(line), needle) {
-            let idx = u32::try_from(i.saturating_add(1)).ok()?;
-            return Some((idx, matched));
-        }
-    }
-    for (i, line) in lines.iter().enumerate().take(start) {
-        if let Some(matched) = match_in(line_body(line), needle) {
+    let lo = start.saturating_sub(LOCATE_BACK);
+    let hi = start
+        .saturating_add(LOCATE_FORWARD)
+        .min(lines.len().saturating_sub(1));
+    for i in (start.saturating_add(1)..=hi).chain(lo..start) {
+        if let Some(matched) = match_in(line_body(&lines[i]), needle) {
             let idx = u32::try_from(i.saturating_add(1)).ok()?;
             return Some((idx, matched));
         }
@@ -633,5 +680,45 @@ mod tests {
         };
         snap_plan(&mut plan, &lines);
         assert!(plan.ops.is_empty(), "{:?}", plan.ops);
+    }
+
+    #[test]
+    fn replace_does_not_walk_to_a_far_article() {
+        let mut lines = vec!["Export controls apply to all software and technical data.".into()];
+        lines.extend(std::iter::repeat_n(
+            "Unrelated clause without the needle.".into(),
+            20,
+        ));
+        lines.push("Export controls apply to all software and technical data.".into());
+        let mut plan = Plan {
+            ops: vec![Op::Replace {
+                index: 5,
+                old: "Export controls apply to all software and technical data.".into(),
+                new: "EXPORT CONTROLS APPLY TO ALL SOFTWARE AND TECHNICAL DATA.".into(),
+            }],
+        };
+        snap_plan(&mut plan, &lines);
+        assert!(
+            !replace_triples(&plan).iter().any(|(i, _, _)| *i >= 20),
+            "walked to a far article: {:?}",
+            replace_triples(&plan)
+        );
+    }
+
+    #[test]
+    fn all_caps_insert_becomes_first_word_replace() {
+        let lines = vec!["Indemnity covers third-party claims.".into()];
+        let mut plan = Plan {
+            ops: vec![Op::Insert {
+                index: 1,
+                position: Position::After,
+                text: "INDEMNITY COVERS THIRD-PARTY CLAIMS.".into(),
+            }],
+        };
+        snap_plan(&mut plan, &lines);
+        assert_eq!(
+            replace_triples(&plan),
+            vec![(1, "Indemnity".into(), "INDEMNITY".into())]
+        );
     }
 }
