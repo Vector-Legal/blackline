@@ -36,8 +36,10 @@ pub enum ModelId {
 }
 
 impl ModelId {
-    /// Parse a `--model` value. A path that exists or ends in `.gguf` is a
-    /// local file; everything else must be a known preset name.
+    /// Parse a `--model` value. Preset names win, even if a same-named
+    /// file exists in cwd (a Downloads/`phi-3` leftover must not steal
+    /// the default). A path is only a GGUF if it ends in `.gguf` or is an
+    /// existing file that is not a preset name.
     pub fn parse(raw: &str) -> Result<Self, AiError> {
         let t = raw.trim();
         if t.is_empty() {
@@ -45,11 +47,21 @@ impl ModelId {
                 "pass --model NAME or a .gguf path".to_string(),
             ));
         }
+        if let Some(preset) = Self::from_preset(t) {
+            return Ok(preset);
+        }
         let path = Path::new(t);
-        if t.ends_with(".gguf") || path.exists() {
+        if t.ends_with(".gguf") || path.is_file() {
             return Ok(Self::Gguf(path.to_path_buf()));
         }
-        Ok(match t {
+        Err(AiError::usage(format!(
+            "unknown model {t:?}. presets: {}; or pass a .gguf path",
+            Self::presets().join(", ")
+        )))
+    }
+
+    fn from_preset(t: &str) -> Option<Self> {
+        Some(match t {
             "phi-3.5" | "phi3.5" => Self::Phi35,
             "phi-3" | "phi3" | "default" => Self::Phi3,
             "llama3.2-1b" | "llama-3.2-1b" => Self::Llama32_1b,
@@ -59,12 +71,7 @@ impl ModelId {
             "qwen2.5-3b" | "qwen-2.5-3b" => Self::Qwen25_3b,
             "qwen2.5-7b" | "qwen-2.5-7b" => Self::Qwen25_7b,
             "tinyllama" | "tiny-llama" => Self::TinyLlama,
-            other => {
-                return Err(AiError::usage(format!(
-                    "unknown model {other:?}. presets: {}; or pass a .gguf path",
-                    Self::presets().join(", ")
-                )));
-            }
+            _ => return None,
         })
     }
 
@@ -97,6 +104,130 @@ impl ModelId {
             Self::TinyLlama => "tinyllama".into(),
             Self::Gguf(p) => p.display().to_string(),
         }
+    }
+}
+
+/// Kalosm sizes RoPE / KV from GGUF `*.context_length`. Above this,
+/// Metal routinely allocates tens of GB.
+const SAFE_CONTEXT: u32 = 8192;
+
+fn context_length_hint(id: &ModelId) -> Option<u32> {
+    match id {
+        ModelId::Phi35 => Some(131_072),
+        ModelId::Phi3 => Some(4096),
+        ModelId::TinyLlama => Some(2048),
+        ModelId::Gguf(path) => peek_gguf_context_length(path),
+        _ => None,
+    }
+}
+
+fn refuse_long_context(id: &ModelId) -> Result<(), AiError> {
+    if matches!(id, ModelId::Phi35) {
+        eprintln!(
+            "warning: phi-3.5 GGUF is 128k context; Kalosm sizes Metal caches \
+             from that (tens of GB). Prefer --model phi-3 or --model tinyllama."
+        );
+        return Ok(());
+    }
+    let Some(n) = context_length_hint(id) else {
+        return Ok(());
+    };
+    if n > SAFE_CONTEXT {
+        return Err(AiError::Model(format!(
+            "GGUF context_length is {n}. Kalosm allocates KV/RoPE from that \
+             metadata — tens of GB on Metal, unrelated to how much RAM the \
+             machine has. Use --model phi-3 (4k) or --model tinyllama (2k)."
+        )));
+    }
+    Ok(())
+}
+
+/// First `*.context_length` that is not `original_context_length`.
+fn peek_gguf_context_length(path: &Path) -> Option<u32> {
+    let mut file = std::fs::File::open(path).ok()?;
+    let mut magic = [0_u8; 4];
+    std::io::Read::read_exact(&mut file, &mut magic).ok()?;
+    if &magic != b"GGUF" {
+        return None;
+    }
+    let mut hdr = [0_u8; 20];
+    std::io::Read::read_exact(&mut file, &mut hdr).ok()?;
+    let n_kv = u64::from_le_bytes(hdr[12..20].try_into().ok()?);
+    for _ in 0..n_kv {
+        let key = read_gguf_string(&mut file)?;
+        let ty = read_u32(&mut file)?;
+        if key.ends_with(".context_length") && !key.ends_with("original_context_length") {
+            return read_gguf_int(ty, &mut file);
+        }
+        skip_gguf_value(ty, &mut file)?;
+    }
+    None
+}
+
+fn read_u32(file: &mut std::fs::File) -> Option<u32> {
+    let mut buf = [0_u8; 4];
+    std::io::Read::read_exact(file, &mut buf).ok()?;
+    Some(u32::from_le_bytes(buf))
+}
+
+fn read_u64(file: &mut std::fs::File) -> Option<u64> {
+    let mut buf = [0_u8; 8];
+    std::io::Read::read_exact(file, &mut buf).ok()?;
+    Some(u64::from_le_bytes(buf))
+}
+
+fn read_gguf_string(file: &mut std::fs::File) -> Option<String> {
+    let n = read_u64(file)? as usize;
+    if n > 1_000_000 {
+        return None;
+    }
+    let mut buf = vec![0_u8; n];
+    std::io::Read::read_exact(file, &mut buf).ok()?;
+    String::from_utf8(buf).ok()
+}
+
+fn read_gguf_int(ty: u32, file: &mut std::fs::File) -> Option<u32> {
+    match ty {
+        4 => read_u32(file),
+        10 => read_u64(file).map(|n| n.min(u64::from(u32::MAX)) as u32),
+        _ => {
+            skip_gguf_value(ty, file)?;
+            None
+        }
+    }
+}
+
+fn skip_gguf_value(ty: u32, file: &mut std::fs::File) -> Option<()> {
+    match ty {
+        0 | 1 | 7 => {
+            let mut b = [0_u8; 1];
+            std::io::Read::read_exact(file, &mut b).ok()
+        }
+        2 | 3 => {
+            let mut b = [0_u8; 2];
+            std::io::Read::read_exact(file, &mut b).ok()
+        }
+        4..=6 => {
+            let mut b = [0_u8; 4];
+            std::io::Read::read_exact(file, &mut b).ok()
+        }
+        8 => {
+            read_gguf_string(file)?;
+            Some(())
+        }
+        9 => {
+            let elem = read_u32(file)?;
+            let n = read_u64(file)?;
+            for _ in 0..n {
+                skip_gguf_value(elem, file)?;
+            }
+            Some(())
+        }
+        10..=12 => {
+            let mut b = [0_u8; 8];
+            std::io::Read::read_exact(file, &mut b).ok()
+        }
+        _ => None,
     }
 }
 
@@ -137,20 +268,17 @@ pub async fn load(id: &ModelId, verbose: bool) -> Result<KalosmCompleter, AiErro
         }
     };
     let source = source.with_cache(Cache::new(super::cache::cache_dir()?));
+    refuse_long_context(id)?;
 
-    if matches!(id, ModelId::Phi35) {
-        eprintln!(
-            "warning: phi-3.5 GGUF is 128k context; Kalosm will size caches from that. \
-             Expect high RAM on Metal. Prefer --model phi-3 (the default)."
-        );
-    }
-    if verbose {
-        eprintln!(
-            "loading model {}  cache={}",
-            id.as_str(),
-            super::cache::cache_dir()?.display()
-        );
-    }
+    let ctx = context_length_hint(id);
+    let ctx_label = ctx.map(|n| format!("{n}")).unwrap_or_else(|| "?".into());
+    eprintln!(
+        "loading model {}  context={}  cache={}",
+        id.as_str(),
+        ctx_label,
+        super::cache::cache_dir()?.display()
+    );
+    let _ = verbose;
     let llama = Llama::builder()
         .with_source(source)
         .build()
@@ -281,5 +409,13 @@ mod tests {
     fn unknown_is_usage() {
         let err = ModelId::parse("gpt-4").unwrap_err();
         assert!(err.is_usage());
+    }
+
+    #[test]
+    fn phi3_is_a_preset_not_a_relative_path() {
+        // `path.exists()` used to win, so a cwd file named `phi-3` loaded
+        // as a GGUF (often the leftover 128k Phi-3.5 weights).
+        assert_eq!(ModelId::parse("phi-3").unwrap(), ModelId::Phi3);
+        assert_eq!(ModelId::parse("tinyllama").unwrap(), ModelId::TinyLlama);
     }
 }

@@ -15,6 +15,10 @@ Versioning follows [SemVer](https://semver.org) as described in
   sampler empty; that is a decoder issue, not a RAM limit. The Metal
   build now generates a JSON plan and parses it. CPU still tries
   constrained generation first and falls back to the same JSON path.
+- `--model` preset names win over a same-named file in the current
+  directory. A leftover `phi-3` file in Downloads used to load as a
+  GGUF and could be the 128k Phi-3.5 weights (tens of GB on Metal).
+  `bl ai` now prints the model and context length on every run.
 
 ## [0.4.1] — 2026-08-25
 

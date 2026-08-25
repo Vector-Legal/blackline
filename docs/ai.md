@@ -69,6 +69,11 @@ constraint masking plus Metal NaN logits leaves nothing to sample.
 `bl ai` then asks the model for a JSON plan and parses it. The model
 still never writes OOXML.
 
+Preset names (`phi-3`, `tinyllama`, …) always win over a file of the
+same name in the current directory. `bl ai` prints `context=` on load.
+If that number is 131072, Kalosm will allocate tens of GB on Metal —
+use `--model phi-3` (4k) or `--model tinyllama` (2k), not phi-3.5.
+
 ## Lifecycle
 
 `bl ai` is one-shot. There is no resident daemon and no session that
