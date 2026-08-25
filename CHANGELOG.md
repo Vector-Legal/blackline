@@ -8,6 +8,8 @@ Versioning follows [SemVer](https://semver.org) as described in
 
 ## [Unreleased]
 
+## [0.4.1] — 2026-08-25
+
 ### Fixed
 
 - Default `bl ai` model is Phi-3 mini 4k, not Phi-3.5. Kalosm's
@@ -148,7 +150,8 @@ Rewrite around OPC + XML primitives. The XML in the package is the document.
 - Non-load-bearing dependencies (`similar`, `strsim`, `walkdir`, `rand`,
   `regex`, `chrono`, `base64`).
 
-[Unreleased]: https://github.com/Vector-Legal/blackline/compare/v0.4.0...HEAD
+[Unreleased]: https://github.com/Vector-Legal/blackline/compare/v0.4.1...HEAD
+[0.4.1]: https://github.com/Vector-Legal/blackline/compare/v0.4.0...v0.4.1
 [0.4.0]: https://github.com/Vector-Legal/blackline/compare/v0.3.2...v0.4.0
 [0.3.2]: https://github.com/Vector-Legal/blackline/compare/v0.3.1...v0.3.2
 [0.3.1]: https://github.com/Vector-Legal/blackline/compare/v0.3.0...v0.3.1
