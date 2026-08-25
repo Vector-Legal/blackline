@@ -22,6 +22,10 @@ pub const AFTER_HELP: &str = "The model never writes OOXML. It emits a small op 
         (`--features metal`) inference is llama.cpp Metal (all layers on the\n\
         GPU). Elsewhere Kalosm owns the tensors and drops them after the plan.\n\
         `bl ai --clear-cache` deletes the GGUFs.\n\n\
+        You do not pass paragraph indexes. Phrases in the instruction select\n\
+        the view (`change thirty days to sixty days` looks up that text;\n\
+        `change title to …` is the first paragraph). `--from` / `--to` is an\n\
+        optional override, same index space as `bl docx view`.\n\n\
         Examples:\n  \
         bl ai contract.docx \"change thirty days to sixty days\" -o out.docx --author \"Jane Doe\"\n  \
         bl ai model.xlsx \"set B2 to 42\" --in-place --model llama3.2-1b\n  \
@@ -65,10 +69,10 @@ pub struct AiArgs {
     /// char | word | sentence
     #[arg(long, default_value = "word")]
     pub granularity: String,
-    /// First view index (1-based)
+    /// First view index (1-based). Optional. Default: phrases from the instruction.
     #[arg(long)]
     pub from: Option<usize>,
-    /// Last view index
+    /// Last view index. Optional. Default: phrases from the instruction.
     #[arg(long)]
     pub to: Option<usize>,
     /// XLSX sheet name or 1-based index
@@ -131,16 +135,22 @@ async fn run_cli(cli: AiArgs) -> Result<(), AiError> {
     let author = resolve_author(cli.author.as_deref())?;
     let model_id = ModelId::parse(&cli.model)?;
 
-    let view = DocumentView::open(file, cli.from, cli.to, cli.sheet.as_deref())?;
+    let view = DocumentView::open(
+        file,
+        cli.from,
+        cli.to,
+        cli.sheet.as_deref(),
+        Some(instruction.as_str()),
+    )?;
     let view_chars: usize = view.lines.iter().map(|l| l.len() + 1).sum();
     eprintln!(
         "view {} line(s)  {} chars{}",
         view.lines.len(),
         view_chars,
-        if view.truncated {
-            "  truncated — pass --from/--to to pick a slice"
+        if view.window.is_empty() {
+            String::new()
         } else {
-            ""
+            format!("  {}", view.window)
         }
     );
 
@@ -302,7 +312,7 @@ pub async fn run_with_completer<C: Completer>(
     opts: ApplyOptions,
     completer: &C,
 ) -> Result<AiReport, AiError> {
-    let view = DocumentView::open(file, None, None, None)?;
+    let view = DocumentView::open(file, None, None, None, Some(instruction))?;
     let plan = completer.complete(&view, instruction).await?;
     let apply_report = apply::apply(file, output, &plan, &opts)?;
     Ok(AiReport {

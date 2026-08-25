@@ -498,7 +498,7 @@ fn map_model_error(msg: String) -> String {
         format!(
             "{msg}. The model produced no usable next token. On Metal that \
              is usually NaN logits after the prompt overran a 2k/4k context. \
-             Retry with --from 1 --to 30 (title/header) or a smaller view, \
+             Retry with a more specific phrase, or --from 1 --to 30, \
              not a bigger machine."
         )
     } else if msg.contains("weight is invalid") || msg.contains("Sampler error") {

@@ -8,6 +8,14 @@ Versioning follows [SemVer](https://semver.org) as described in
 
 ## [Unreleased]
 
+### Added
+
+- `bl ai` no longer requires `--from` / `--to`. Phrases in the
+  instruction (`change thirty days to sixty days`, quoted spans,
+  `change title to …` as the first paragraph) select the numbered
+  view. Ops still use the real paragraph indexes so apply hits the
+  right span. `--from` / `--to` remains an explicit override.
+
 ### Fixed
 
 - `bl ai` on Metal no longer dies with `No valid tokens were sampled`.
@@ -19,8 +27,8 @@ Versioning follows [SemVer](https://semver.org) as described in
   GGUF and could be the 128k Phi-3.5 weights (tens of GB on Metal).
   `bl ai` now prints the model and context length on every run.
 - Default AI view cap is 2500 characters (was 16k), so TinyLlama 2k
-  and Phi-3 4k are not overstuffed. Use `--from` / `--to` for a
-  specific clause.
+  and Phi-3 4k are not overstuffed. When `--from` / `--to` is omitted,
+  phrases in the instruction select the window.
 - `bl ai --features metal` on macOS runs llama.cpp with every layer on
   Metal. Kalosm/Candle Metal was returning `No token sampled` (NaN
   logits) even for TinyLlama; forcing CPU then ran forever because

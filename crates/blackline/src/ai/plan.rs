@@ -335,6 +335,7 @@ mod tests {
             format: Format::Docx,
             lines: vec!["1| hello".into()],
             truncated: false,
+            window: String::new(),
         };
         let user = user_prompt(&view, "change hello");
         assert!(user.contains("hello"));

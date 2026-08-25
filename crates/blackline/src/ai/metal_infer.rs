@@ -87,7 +87,7 @@ pub(crate) fn complete(
     if prompt_len >= n_ctx {
         return Err(AiError::Model(format!(
             "prompt is {prompt_len} tokens; context is {n_ctx}. \
-             Pass --from / --to to shrink the view."
+             Pass a more specific phrase, or --from / --to, to shrink the view."
         )));
     }
     let max_new = PLAN_MAX_TOKENS.min(n_ctx.saturating_sub(prompt_len));

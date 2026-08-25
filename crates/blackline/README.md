@@ -76,7 +76,8 @@ Escape hatch to raw XML:
 Run `bl <format> --help` for the full verb list.
 
 Natural language (rebuild with `--features kalosm` so the model is present).
-The model loads for that command only and is dropped before the file is
+You do not pass paragraph indexes — phrases in the instruction select the
+view. The model loads for that command only and is dropped before the file is
 written. `bl ai --clear-cache` deletes the downloaded GGUFs.
 
     bl ai contract.docx "change thirty days to sixty days" \

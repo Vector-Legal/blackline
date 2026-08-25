@@ -41,7 +41,8 @@ bl ai FILE INSTRUCTION
         --no-track            DOCX: silent edit, not a redline
         --lenient
         --granularity char|word|sentence
-        --from N --to N       window the numbered view
+        --from N --to N       optional window; default is phrases from
+                              the instruction
         --sheet NAME          XLSX
         --verbose
         --clear-cache         delete downloaded GGUFs
@@ -112,14 +113,18 @@ set). The next `bl ai FILE INSTRUCTION` downloads again.
 | `.pptx` | `set_text` |
 
 Indexes are 1-based, the same space as `blackline docx view`. Applied
-through `Docx::track` unless `--no-track`.
+through `Docx::track` unless `--no-track`. You do not have to pass
+`--from` / `--to`: `bl ai` searches the file for phrases in the
+instruction (`change thirty days to sixty days` looks up `thirty days`)
+and only those hits plus a neighbor go to the model. The op still uses
+the real paragraph index. `--from` / `--to` remains an explicit override.
 
 ## Pipeline
 
 ```
 FILE + INSTRUCTION
-    → numbered view (blackline)
-    → Kalosm task, constrained to Plan
+    → numbered view (instruction hits, or `--from`/`--to`)
+    → JSON Plan (llama.cpp Metal, or Kalosm constrained / JSON)
     → blackline track / edit
     → package check
 ```

@@ -184,7 +184,9 @@ blackline fixtures DIR
 
 ## Natural language
 
-`bl ai` is a subcommand on this CLI. See [ai.md](ai.md).
+`bl ai` is a subcommand on this CLI. See [ai.md](ai.md). You do not
+pass `--from` / `--to`: phrases in the instruction select the numbered
+view. Those flags remain an optional override.
 
 ```
 blackline ai FILE INSTRUCTION -o OUT --author NAME
