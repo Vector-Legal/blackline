@@ -9,7 +9,7 @@ members = [
 ]
 
 [workspace.package]
-version = "0.4.0"
+version = "0.4.1"
 edition = "2021"
 rust-version = "1.88"
 license = "MIT"
@@ -55,10 +55,10 @@ maybe_infinite_iter = "warn"
 [workspace.dependencies]
 # Keep these versions in lockstep with workspace.package.version so
 # `cargo publish` can resolve crates.io dependencies after a transfer.
-blackline-core = { path = "crates/blackline-core", version = "0.4.0" }
-blackline-docx = { path = "crates/blackline-docx", version = "0.4.0" }
-blackline-xlsx = { path = "crates/blackline-xlsx", version = "0.4.0" }
-blackline-pptx = { path = "crates/blackline-pptx", version = "0.4.0" }
+blackline-core = { path = "crates/blackline-core", version = "0.4.1" }
+blackline-docx = { path = "crates/blackline-docx", version = "0.4.1" }
+blackline-xlsx = { path = "crates/blackline-xlsx", version = "0.4.1" }
+blackline-pptx = { path = "crates/blackline-pptx", version = "0.4.1" }
 
 clap = { version = "4", features = ["derive"] }
 quick-xml = "0.41"
