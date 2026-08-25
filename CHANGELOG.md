@@ -40,6 +40,9 @@ Versioning follows [SemVer](https://semver.org) as described in
   replace so `all caps first` does not append a duplicate clause.
   A replace whose `old` is only view chrome (`H1:`) is dropped so
   one miss does not abort the rest of the batch.
+  All-caps detection ignores `[fill-in]` brackets so a table header
+  insert snaps to the first word instead of a piped `old` apply
+  cannot find.
   Prompt lines are
   abbreviated without `…`. Ops use a short `old` and the real
   paragraph index. `--from` / `--to` remains an explicit override.

@@ -219,6 +219,9 @@ fn find_swap_ngram(
             continue;
         }
         if let Some(old) = ngram_sharing_last(line_body(&lines[i]), n, last, new_phrase) {
+            if old.contains(" | ") {
+                continue;
+            }
             return Some((idx, old));
         }
     }
@@ -290,7 +293,20 @@ fn all_caps_insert_as_replace(
 }
 
 fn is_all_caps_text(s: &str) -> bool {
-    let letters: String = s.chars().filter(|c| c.is_alphabetic()).collect();
+    let mut without_fillins = String::new();
+    let mut in_fillin = false;
+    for c in s.chars() {
+        match c {
+            '[' => in_fillin = true,
+            ']' => in_fillin = false,
+            _ if !in_fillin => without_fillins.push(c),
+            _ => {}
+        }
+    }
+    let letters: String = without_fillins
+        .chars()
+        .filter(|c| c.is_alphabetic())
+        .collect();
     !letters.is_empty() && letters.chars().all(|c| c.is_uppercase())
 }
 
@@ -734,6 +750,23 @@ mod tests {
         };
         snap_plan(&mut plan, &lines);
         assert!(plan.ops.is_empty(), "{:?}", plan.ops);
+    }
+
+    #[test]
+    fn all_caps_insert_ignores_fillin_brackets() {
+        let lines = vec!["Customer: | [Name] / Contact: | / / Address: |".into()];
+        let mut plan = Plan {
+            ops: vec![Op::Insert {
+                index: 1,
+                position: Position::Before,
+                text: "CUSTOMER: [Name] / CONTACT: / / ADDRESS: /".into(),
+            }],
+        };
+        snap_plan(&mut plan, &lines);
+        assert_eq!(
+            replace_triples(&plan),
+            vec![(1, "Customer".into(), "CUSTOMER".into())]
+        );
     }
 
     #[test]
