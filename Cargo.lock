@@ -333,7 +333,7 @@ dependencies = [
 
 [[package]]
 name = "blackline"
-version = "0.4.1"
+version = "0.4.2"
 dependencies = [
  "assert_cmd",
  "blackline-core",
@@ -357,7 +357,7 @@ dependencies = [
 
 [[package]]
 name = "blackline-core"
-version = "0.4.1"
+version = "0.4.2"
 dependencies = [
  "quick-xml",
  "serde",
@@ -369,7 +369,7 @@ dependencies = [
 
 [[package]]
 name = "blackline-docx"
-version = "0.4.1"
+version = "0.4.2"
 dependencies = [
  "blackline-core",
  "serde",
@@ -380,7 +380,7 @@ dependencies = [
 
 [[package]]
 name = "blackline-pptx"
-version = "0.4.1"
+version = "0.4.2"
 dependencies = [
  "blackline-core",
  "serde",
@@ -391,7 +391,7 @@ dependencies = [
 
 [[package]]
 name = "blackline-xlsx"
-version = "0.4.1"
+version = "0.4.2"
 dependencies = [
  "blackline-core",
  "serde",
