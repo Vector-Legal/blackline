@@ -38,6 +38,8 @@ Versioning follows [SemVer](https://semver.org) as described in
   Replace snap only walks a few neighboring lines, not the rest of
   the file. An all-caps insert of a sentence becomes a first-word
   replace so `all caps first` does not append a duplicate clause.
+  A replace whose `old` is only view chrome (`H1:`) is dropped so
+  one miss does not abort the rest of the batch.
   Prompt lines are
   abbreviated without `…`. Ops use a short `old` and the real
   paragraph index. `--from` / `--to` remains an explicit override.

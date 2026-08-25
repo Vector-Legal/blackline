@@ -83,10 +83,10 @@ fn expand_replace(
         }
     }
     if ops.is_empty() {
-        if duplicate {
-            return SnapOutcome::Replace(Vec::new());
-        }
-        return SnapOutcome::Keep;
+        // Do not keep an unsnappable replace (`H1:` from the view
+        // prefix). Strict apply aborts the whole batch on the first miss.
+        let _ = duplicate;
+        return SnapOutcome::Replace(Vec::new());
     }
     SnapOutcome::Replace(ops)
 }
@@ -132,7 +132,7 @@ fn snap_insert(
     claimed: &mut BTreeSet<(u32, String)>,
 ) -> Option<Op> {
     let text = strip_prompt_junk(&text);
-    if let Some((idx, old, new)) = insert_as_replace(lines, index, &text, claimed) {
+    if let Some((idx, old, new)) = all_caps_insert_as_replace(lines, index, &text) {
         let key = (idx, old.to_lowercase());
         if !claimed.insert(key) {
             return None;
@@ -143,7 +143,7 @@ fn snap_insert(
             new,
         });
     }
-    if let Some((idx, old, new)) = all_caps_insert_as_replace(lines, index, &text) {
+    if let Some((idx, old, new)) = insert_as_replace(lines, index, &text, claimed) {
         let key = (idx, old.to_lowercase());
         if !claimed.insert(key) {
             return None;
@@ -392,9 +392,22 @@ fn line_body(line: &str) -> &str {
         return line;
     }
     let rest = line.get(digits..).unwrap_or("");
-    rest.strip_prefix("| ")
+    let rest = rest
+        .strip_prefix("| ")
         .or_else(|| rest.strip_prefix('|'))
-        .unwrap_or(line)
+        .unwrap_or(line);
+    strip_heading_prefix(rest)
+}
+
+/// `bl docx view` prints `H1: ` in front of a heading. That prefix is
+/// not in the paragraph, so a copied `old` of `H1:` must not be kept.
+fn strip_heading_prefix(s: &str) -> &str {
+    let t = s.trim_start();
+    let b = t.as_bytes();
+    if b.len() >= 4 && b[0] == b'H' && b[1].is_ascii_digit() && b[2] == b':' && b[3] == b' ' {
+        return t.get(4..).unwrap_or(t);
+    }
+    t
 }
 
 #[cfg(test)]
@@ -463,6 +476,10 @@ mod tests {
     #[test]
     fn numbered_prefix_is_stripped_document_pipe_is_not() {
         assert_eq!(line_body("2| Customer:"), "Customer:");
+        assert_eq!(
+            line_body("1| H1: SaaS Services Order Form"),
+            "SaaS Services Order Form"
+        );
         assert_eq!(line_body("Address: |"), "Address: |");
         assert_eq!(line_body("Customer:"), "Customer:");
     }
@@ -703,6 +720,20 @@ mod tests {
             "walked to a far article: {:?}",
             replace_triples(&plan)
         );
+    }
+
+    #[test]
+    fn view_heading_prefix_replace_is_dropped() {
+        let lines = vec!["1| H1: SaaS Services Order Form".into()];
+        let mut plan = Plan {
+            ops: vec![Op::Replace {
+                index: 1,
+                old: "H1:".into(),
+                new: "H1:".into(),
+            }],
+        };
+        snap_plan(&mut plan, &lines);
+        assert!(plan.ops.is_empty(), "{:?}", plan.ops);
     }
 
     #[test]
