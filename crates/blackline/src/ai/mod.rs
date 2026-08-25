@@ -13,6 +13,7 @@ mod error;
 mod format;
 mod model;
 mod plan;
+mod snap;
 mod view;
 
 #[cfg(all(feature = "kalosm", feature = "metal", target_os = "macos"))]

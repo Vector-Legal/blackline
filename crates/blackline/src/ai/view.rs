@@ -244,9 +244,9 @@ fn abbreviate_line(line: &str, max: usize) -> String {
     if line.chars().count() <= max {
         return line.to_string();
     }
-    let mut out: String = line.chars().take(max.saturating_sub(1)).collect();
-    out.push('…');
-    out
+    // Exact prefix of the real line — no ellipsis. The model copies `old`
+    // from this text; a `…` would not exist in the paragraph.
+    line.chars().take(max).collect()
 }
 
 fn slice_lines(lines: &mut Vec<String>, from: Option<usize>, to: Option<usize>) {
@@ -709,8 +709,8 @@ mod tests {
         );
         let short = abbreviate_line(&line, 80);
         assert!(short.starts_with("21| "));
-        assert!(short.ends_with('…'));
-        assert!(short.chars().count() <= 80);
+        assert!(!short.contains('…'));
+        assert_eq!(short.chars().count(), 80);
     }
 
     #[test]

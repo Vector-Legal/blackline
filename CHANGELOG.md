@@ -15,9 +15,11 @@ Versioning follows [SemVer](https://semver.org) as described in
   `change title to …` as the first paragraph) select the numbered
   view. `every paragraph` / `throughout the document` walks the file
   in chunks of at most 12 paragraphs so the plan JSON can finish.
-  Truncated JSON keeps complete ops. Prompt lines are abbreviated; ops
-  use a short `old` and the real paragraph index. `--from` / `--to`
-  remains an explicit override.
+  Truncated JSON keeps complete ops. Before apply, `old` is snapped
+  to a span that exists in the paragraph (Phi-3 otherwise concatenates
+  several `N|` lines and copies a prompt ellipsis). Prompt lines are
+  abbreviated without `…`. Ops use a short `old` and the real
+  paragraph index. `--from` / `--to` remains an explicit override.
 
 ### Fixed
 
