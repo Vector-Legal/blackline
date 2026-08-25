@@ -19,6 +19,9 @@ Versioning follows [SemVer](https://semver.org) as described in
   directory. A leftover `phi-3` file in Downloads used to load as a
   GGUF and could be the 128k Phi-3.5 weights (tens of GB on Metal).
   `bl ai` now prints the model and context length on every run.
+- Default AI view cap is 2500 characters (was 16k), so TinyLlama 2k
+  and Phi-3 4k are not overstuffed. Use `--from` / `--to` for a
+  specific clause.
 
 ## [0.4.1] — 2026-08-25
 

@@ -369,12 +369,12 @@ async fn complete_json(
 
 #[cfg(feature = "kalosm")]
 fn map_model_error(msg: String) -> String {
-    if msg.contains("No valid tokens") {
+    if msg.contains("No valid tokens") || msg.contains("No token sampled") {
         format!(
-            "{msg}. Kalosm could not pick a next token (Metal often produces \
-             NaN logits under structured decoding). This is not a RAM limit. \
-             Rebuild without --features metal to run on CPU, or pass \
-             --from/--to to window the view."
+            "{msg}. The model produced no usable next token. On Metal that \
+             is usually NaN logits after the prompt overran a 2k/4k context. \
+             Retry with --from 1 --to 30 (title/header) or a smaller view, \
+             not a bigger machine."
         )
     } else if msg.contains("weight is invalid") || msg.contains("Sampler error") {
         format!(

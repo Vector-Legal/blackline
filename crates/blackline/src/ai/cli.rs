@@ -131,6 +131,17 @@ async fn run_cli(cli: AiArgs) -> Result<(), AiError> {
     let model_id = ModelId::parse(&cli.model)?;
 
     let view = DocumentView::open(file, cli.from, cli.to, cli.sheet.as_deref())?;
+    let view_chars: usize = view.lines.iter().map(|l| l.len() + 1).sum();
+    eprintln!(
+        "view {} line(s)  {} chars{}",
+        view.lines.len(),
+        view_chars,
+        if view.truncated {
+            "  truncated — pass --from/--to to pick a slice"
+        } else {
+            ""
+        }
+    );
 
     if view.format == super::format::Format::Docx && !cli.no_track && author.is_none() {
         return Err(AiError::usage(

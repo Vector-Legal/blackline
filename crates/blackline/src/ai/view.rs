@@ -9,9 +9,10 @@ use blackline_xlsx::Xlsx;
 use super::error::AiError;
 use super::format::Format;
 
-/// Soft cap on characters stuffed into the prompt. `--from` / `--to` is the
-/// way to window a long file; this only stops a 200-page dump.
-pub const CONTEXT_CHARS: usize = 16_384;
+/// Soft cap on characters stuffed into the prompt. TinyLlama is 2k tokens
+/// and Phi-3 is 4k; 16k chars overflowed both and Metal then sampled
+/// nothing. `--from` / `--to` windows a long file on purpose.
+pub const CONTEXT_CHARS: usize = 2_500;
 
 /// A file, opened and rendered as numbered lines the model can address.
 #[derive(Debug, Clone)]
