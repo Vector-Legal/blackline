@@ -57,6 +57,29 @@ generation needs. `--model` overrides the preset or points at a GGUF.
 
 First run downloads the GGUF into the Kalosm cache. Later runs are local.
 
+## Lifecycle
+
+`bl ai` is one-shot. There is no resident daemon and no session that
+outlives the command.
+
+1. Load the model into RAM (and Metal / CUDA if those features are on).
+2. Constrained-generate one `Plan`.
+3. **Drop the model** — weights, KV cache, and accelerator buffers go
+   out of scope before blackline writes the package.
+4. Process exit releases anything the drop did not.
+
+The only leftover is the **GGUF on disk**. Kalosm's default cache is
+`DATA_DIR/kalosm/cache`:
+
+| OS | Typical path |
+|----|----------------|
+| macOS | `~/Library/Application Support/kalosm/cache` |
+| Linux | `~/.local/share/kalosm/cache` |
+| Windows | `%APPDATA%\kalosm\cache` |
+
+Delete that directory to reclaim disk. The next `bl ai` downloads again.
+A `--model ./file.gguf` path is yours; blackline does not delete it.
+
 ## What the model is allowed to emit
 
 | File | Ops |

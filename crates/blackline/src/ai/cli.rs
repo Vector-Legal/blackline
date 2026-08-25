@@ -18,7 +18,10 @@ pub const ABOUT: &str = "Local AI that drives blackline: a prompt becomes native
 pub const AFTER_HELP: &str = "The model never writes OOXML. It emits a small op list; blackline applies it.\n\
         DOCX ops become Word tracked changes (pass --author). XLSX and PPTX are silent edits.\n\n\
         Default model is quantized Phi-3.5 mini (Kalosm). Override with --model.\n\
-        First run downloads the GGUF into the Kalosm cache.\n\n\
+        First run downloads the GGUF into the Kalosm cache. The model is loaded\n\
+        for this command only: weights drop before the file is written, and the\n\
+        process exit releases RAM / Metal / CUDA. Delete the Kalosm cache to\n\
+        reclaim disk.\n\n\
         Examples:\n  \
         bl ai contract.docx \"change thirty days to sixty days\" -o out.docx --author \"Jane Doe\"\n  \
         bl ai model.xlsx \"set B2 to 42\" --in-place --model llama3.2-3b\n  \
@@ -157,7 +160,15 @@ async fn complete_with_model(
     #[cfg(feature = "kalosm")]
     {
         let completer = super::model::load(id, verbose).await?;
-        return completer.complete(view, instruction).await;
+        let plan = completer.complete(view, instruction).await?;
+        // Weights, KV cache, and Metal/CUDA buffers live only in `completer`.
+        // Drop them before apply so RAM/VRAM are gone while we write the
+        // package. The GGUF stays in Kalosm's on-disk cache for the next run.
+        drop(completer);
+        if verbose {
+            eprintln!("unloaded model");
+        }
+        return Ok(plan);
     }
     #[cfg(not(feature = "kalosm"))]
     {

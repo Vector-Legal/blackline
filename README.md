@@ -225,6 +225,13 @@ bl ai contract.docx "change thirty days to sixty days" \
     -o revised.docx --author "Jane Doe"
 ```
 
+The model is loaded for that command only. After it emits the plan,
+blackline drops the weights (RAM / Metal / CUDA) and then writes the
+file. Process exit is the rest of the cleanup. The downloaded GGUF
+stays in Kalosm's cache so the next run is local; delete
+`~/Library/Application Support/kalosm/cache` (macOS) or
+`~/.local/share/kalosm/cache` (Linux) to reclaim disk.
+
 ## Library
 
 ```rust

@@ -193,4 +193,6 @@ blackline ai FILE INSTRUCTION -o OUT --author NAME
 The model emits blackline ops; this CLI applies them. Default model is
 quantized Phi-3.5 mini (`--model` overrides). `cargo install blackline`
 stays lean; rebuild with `--features kalosm` (plus `metal` or `cuda`)
-so the model runtime is present.
+so the model runtime is present. The model is one-shot: loaded, used
+for one plan, dropped before the write. The GGUF cache is the only
+leftover; see [ai.md](ai.md#lifecycle).

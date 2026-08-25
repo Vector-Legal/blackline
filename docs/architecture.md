@@ -157,6 +157,7 @@ xlsx   view | info | find | edit | create | check | cat | parts
 pptx   view | info | find | edit | create | check | cat | parts
 xml    get | eval | select | edit | patch | update
 track  apply | redline | changes | comments | settle
+ai     FILE INSTRUCTION
 unpack FILE DIR
 pack   DIR FILE
 fixtures DIR
@@ -248,7 +249,10 @@ prompt + numbered view  →  Kalosm (constrained Plan)  →  Docx::track / Xlsx:
 
 `Completer` is the only extra type. Tests inject a canned plan so CI
 never downloads a GGUF. Default model is quantized Phi-3.5 mini;
-`--model` overrides. PDF and Markdown stay out of scope.
+`--model` overrides. PDF and Markdown stay out of scope. The Kalosm
+`Llama` is loaded for that invocation only and dropped after the plan
+is parsed; there is no resident model. The GGUF stays in Kalosm's
+cache until the user deletes it.
 
 See [ai.md](ai.md).
 

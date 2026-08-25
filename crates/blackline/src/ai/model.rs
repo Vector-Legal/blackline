@@ -99,6 +99,11 @@ impl ModelId {
 }
 
 /// Load the model and wrap it as a [`super::plan::Completer`].
+///
+/// The returned completer owns the Kalosm `Llama` (weights + accelerator
+/// buffers). Drop it after one [`super::plan::Completer::complete`] — there
+/// is no unload API and no resident process. The GGUF stays in Kalosm's
+/// on-disk cache (`DATA_DIR/kalosm/cache`).
 #[cfg(feature = "kalosm")]
 pub async fn load(id: &ModelId, verbose: bool) -> Result<KalosmCompleter, AiError> {
     use kalosm::language::{FileSource, Llama, LlamaSource};
