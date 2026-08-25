@@ -244,14 +244,15 @@ format façades and does not add models, prompts, or conversion to
 `blackline-core`.
 
 ```
-prompt + numbered view  →  Kalosm (constrained Plan)  →  Docx::track / Xlsx::edit / Pptx::edit
+prompt + numbered view  →  Plan JSON  →  Docx::track / Xlsx::edit / Pptx::edit
 ```
 
+On macOS `--features metal` the runtime is llama.cpp Metal (all layers
+on the GPU). Elsewhere it is Kalosm (constrained `Plan`, JSON fallback).
 `Completer` is the only extra type. Tests inject a canned plan so CI
 never downloads a GGUF. Default model is quantized Phi-3 mini 4k;
-`--model` overrides. PDF and Markdown stay out of scope. The Kalosm
-`Llama` handle is dropped after the plan is parsed; Kalosm's worker
-thread then frees the tensors. There is no resident model.
+`--model` overrides. PDF and Markdown stay out of scope. The model
+handle is dropped after the plan is parsed. There is no resident model.
 `bl ai --clear-cache` deletes the on-disk GGUFs.
 
 See [ai.md](ai.md).

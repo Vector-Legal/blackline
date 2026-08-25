@@ -108,8 +108,19 @@ impl ModelId {
 }
 
 /// Kalosm sizes RoPE / KV from GGUF `*.context_length`. Above this,
-/// Metal routinely allocates tens of GB.
+/// Candle Metal routinely allocates tens of GB. llama.cpp on macOS
+/// caps allocation at [`INFER_CONTEXT`] instead.
 const SAFE_CONTEXT: u32 = 8192;
+
+/// New tokens for a JSON plan. Also the hard stop so a run cannot
+/// go forever (`GenerationParameters` defaults to `u32::MAX`).
+#[cfg(all(feature = "kalosm", not(all(feature = "metal", target_os = "macos"))))]
+const PLAN_MAX_TOKENS: u32 = 256;
+
+/// Context we actually allocate (llama.cpp Metal, and the refuse
+/// threshold for Kalosm).
+#[cfg(all(feature = "kalosm", feature = "metal", target_os = "macos"))]
+const INFER_CONTEXT: u32 = super::metal_infer::INFER_CONTEXT;
 
 fn context_length_hint(id: &ModelId) -> Option<u32> {
     match id {
@@ -121,6 +132,7 @@ fn context_length_hint(id: &ModelId) -> Option<u32> {
     }
 }
 
+#[cfg(all(feature = "kalosm", not(all(feature = "metal", target_os = "macos"))))]
 fn refuse_long_context(id: &ModelId) -> Result<(), AiError> {
     if matches!(id, ModelId::Phi35) {
         eprintln!(
@@ -231,18 +243,65 @@ fn skip_gguf_value(ty: u32, file: &mut std::fs::File) -> Option<()> {
     }
 }
 
-/// Load the model and wrap it as a [`super::plan::Completer`].
-///
-/// Kalosm's `Llama` is a channel handle. The quantized weights and Metal /
-/// CUDA buffers live on a worker thread. Dropping the last handle closes
-/// the channel; the worker exits and `Drop`s the tensors. There is no
-/// unload API. The GGUF file stays in [`super::cache::cache_dir`].
-#[cfg(feature = "kalosm")]
-pub async fn load(id: &ModelId, verbose: bool) -> Result<KalosmCompleter, AiError> {
-    use kalosm::language::{FileSource, Llama, LlamaSource};
-    use kalosm_common::Cache;
+/// Hugging Face GGUF coordinates matching Kalosm's presets, so a Mac
+/// Metal run reuses the same cache files as a Kalosm CPU run.
+#[cfg(all(feature = "kalosm", feature = "metal", target_os = "macos"))]
+fn gguf_file_source(id: &ModelId) -> kalosm::language::FileSource {
+    use kalosm::language::FileSource;
+    match id {
+        ModelId::Phi35 => FileSource::huggingface(
+            "bartowski/Phi-3.5-mini-instruct-GGUF",
+            "main",
+            "Phi-3.5-mini-instruct-Q4_K_M.gguf",
+        ),
+        ModelId::Phi3 => FileSource::huggingface(
+            "bartowski/Phi-3.1-mini-4k-instruct-GGUF",
+            "main",
+            "Phi-3.1-mini-4k-instruct-Q4_K_M.gguf",
+        ),
+        ModelId::Llama32_1b => FileSource::huggingface(
+            "lmstudio-community/Llama-3.2-1B-Instruct-GGUF",
+            "main",
+            "Llama-3.2-1B-Instruct-Q4_K_M.gguf",
+        ),
+        ModelId::Llama32_3b => FileSource::huggingface(
+            "lmstudio-community/Llama-3.2-3B-Instruct-GGUF",
+            "main",
+            "Llama-3.2-3B-Instruct-Q4_K_M.gguf",
+        ),
+        ModelId::Llama31_8b => FileSource::huggingface(
+            "lmstudio-community/Meta-Llama-3.1-8B-Instruct-GGUF",
+            "main",
+            "Meta-Llama-3.1-8B-Instruct-Q4_K_M.gguf",
+        ),
+        ModelId::Qwen25_15b => FileSource::huggingface(
+            "Qwen/Qwen2.5-1.5B-Instruct-GGUF",
+            "main",
+            "qwen2.5-1.5b-instruct-q4_k_m.gguf",
+        ),
+        ModelId::Qwen25_3b => FileSource::huggingface(
+            "Qwen/Qwen2.5-3B-Instruct-GGUF",
+            "main",
+            "qwen2.5-3b-instruct-q4_k_m.gguf",
+        ),
+        ModelId::Qwen25_7b => FileSource::huggingface(
+            "bartowski/Qwen2.5-7B-Instruct-GGUF",
+            "main",
+            "Qwen2.5-7B-Instruct-Q4_K_M.gguf",
+        ),
+        ModelId::TinyLlama => FileSource::huggingface(
+            "TheBloke/TinyLlama-1.1B-Chat-v1.0-GGUF",
+            "main",
+            "tinyllama-1.1b-chat-v1.0.Q4_K_M.gguf",
+        ),
+        ModelId::Gguf(path) => FileSource::local(path.clone()),
+    }
+}
 
-    let source = match id {
+#[cfg(all(feature = "kalosm", not(all(feature = "metal", target_os = "macos"))))]
+fn kalosm_source(id: &ModelId) -> kalosm::language::LlamaSource {
+    use kalosm::language::{FileSource, LlamaSource};
+    match id {
         ModelId::Phi35 => LlamaSource::phi_3_5_mini_4k_instruct(),
         // Kalosm's `phi_3_mini_4k_instruct` pins a Hugging Face revision that
         // 404s. `phi_3_1_mini_4k_instruct` is the same 4k Q4 on `main`.
@@ -266,41 +325,88 @@ pub async fn load(id: &ModelId, verbose: bool) -> Result<KalosmCompleter, AiErro
             }
             source
         }
-    };
-    let source = source.with_cache(Cache::new(super::cache::cache_dir()?));
-    refuse_long_context(id)?;
-
-    let ctx = context_length_hint(id);
-    let ctx_label = ctx.map(|n| format!("{n}")).unwrap_or_else(|| "?".into());
-    eprintln!(
-        "loading model {}  context={}  cache={}",
-        id.as_str(),
-        ctx_label,
-        super::cache::cache_dir()?.display()
-    );
-    let _ = verbose;
-    let mut builder = Llama::builder().with_source(source);
-    // Kalosm + Candle Metal yields all-NaN logits on Apple Silicon
-    // (`No token sampled`), even for TinyLlama 2k and a 25-line view.
-    // CPU is the path that actually emits a plan.
-    #[cfg(feature = "metal")]
-    {
-        builder = builder.with_device(candle_core::Device::Cpu);
-        eprintln!(
-            "device=cpu  (Kalosm Metal sampling is unusable; running on CPU)"
-        );
     }
-    let llama = builder
-        .build()
-        .await
-        .map_err(|e| AiError::Model(format!("failed to load {}: {e}", id.as_str())))?;
-    Ok(KalosmCompleter { llama })
 }
 
-/// Kalosm-backed completer: constrained generation into [`super::plan::Plan`].
+/// Load the model and wrap it as a [`super::plan::Completer`].
+///
+/// On macOS `--features metal`, Kalosm only downloads the GGUF. Inference
+/// is llama.cpp with every layer on Metal. Elsewhere Kalosm's `Llama` is
+/// a channel handle: dropping it closes the worker and frees tensors.
+/// The GGUF file stays in [`super::cache::cache_dir`].
+#[cfg(feature = "kalosm")]
+pub async fn load(id: &ModelId, verbose: bool) -> Result<KalosmCompleter, AiError> {
+    use kalosm_common::Cache;
+
+    let cache_dir = super::cache::cache_dir()?;
+    let cache = Cache::new(cache_dir.clone());
+    let _ = verbose;
+
+    #[cfg(all(feature = "metal", target_os = "macos"))]
+    {
+        let source = gguf_file_source(id);
+        eprintln!("fetching {}  cache={}", id.as_str(), cache_dir.display());
+        let gguf = cache
+            .get(&source, |_| {})
+            .await
+            .map_err(|e| AiError::Model(format!("failed to fetch {}: {e}", id.as_str())))?;
+        let peeked = peek_gguf_context_length(&gguf);
+        if peeked.unwrap_or(0) > SAFE_CONTEXT {
+            eprintln!(
+                "warning: GGUF context_length is {}; llama.cpp will use {} \
+                 (not the 128k Kalosm/Candle path).",
+                peeked.unwrap_or(0),
+                INFER_CONTEXT
+            );
+        }
+        let n_ctx = peeked
+            .or_else(|| context_length_hint(id))
+            .unwrap_or(INFER_CONTEXT)
+            .min(INFER_CONTEXT);
+        eprintln!(
+            "loading model {}  backend=llama.cpp+metal  layers=999  context={}  cache={}",
+            id.as_str(),
+            n_ctx,
+            cache_dir.display()
+        );
+        return Ok(KalosmCompleter {
+            gguf,
+            context_length: n_ctx,
+        });
+    }
+
+    #[cfg(not(all(feature = "metal", target_os = "macos")))]
+    {
+        use kalosm::language::Llama;
+
+        let source = kalosm_source(id).with_cache(cache);
+        refuse_long_context(id)?;
+        let ctx = context_length_hint(id);
+        let ctx_label = ctx.map(|n| format!("{n}")).unwrap_or_else(|| "?".into());
+        eprintln!(
+            "loading model {}  backend=kalosm  context={}  cache={}",
+            id.as_str(),
+            ctx_label,
+            cache_dir.display()
+        );
+        let llama = Llama::builder()
+            .with_source(source)
+            .build()
+            .await
+            .map_err(|e| AiError::Model(format!("failed to load {}: {e}", id.as_str())))?;
+        Ok(KalosmCompleter { llama })
+    }
+}
+
+/// Completer: llama.cpp Metal on macOS, Kalosm elsewhere.
 #[cfg(feature = "kalosm")]
 pub struct KalosmCompleter {
+    #[cfg(not(all(feature = "metal", target_os = "macos")))]
     llama: kalosm::language::Llama,
+    #[cfg(all(feature = "metal", target_os = "macos"))]
+    gguf: PathBuf,
+    #[cfg(all(feature = "metal", target_os = "macos"))]
+    context_length: u32,
 }
 
 #[cfg(feature = "kalosm")]
@@ -314,16 +420,26 @@ impl super::plan::Completer for KalosmCompleter {
 
         let user = user_prompt(view, instruction);
 
-        // Metal + Kalosm structured generation often returns
-        // "No valid tokens were sampled": constraint masking leaves only
-        // NaN logits, then greedy has nothing to pick. That is a decoder
-        // bug, not RAM. Generate JSON in the clear and parse it.
-        #[cfg(feature = "metal")]
+        #[cfg(all(feature = "metal", target_os = "macos"))]
         {
-            return complete_json(&self.llama, view, &user).await;
+            use super::plan::{json_output_instruction, parse_plan_json, system_prompt};
+
+            let system = format!(
+                "{}{}",
+                system_prompt(view.format),
+                json_output_instruction()
+            );
+            let gguf = self.gguf.clone();
+            let n_ctx = self.context_length;
+            let text = tokio::task::spawn_blocking(move || {
+                super::metal_infer::complete(&gguf, &system, &user, n_ctx)
+            })
+            .await
+            .map_err(|e| AiError::Model(format!("llama.cpp worker: {e}")))??;
+            return parse_plan_json(&text);
         }
 
-        #[cfg(not(feature = "metal"))]
+        #[cfg(not(all(feature = "metal", target_os = "macos")))]
         {
             use super::plan::{system_prompt, Plan};
             use kalosm::language::{ChatModelExt, Parse};
@@ -349,15 +465,14 @@ impl super::plan::Completer for KalosmCompleter {
     }
 }
 
-#[cfg(feature = "kalosm")]
+#[cfg(all(feature = "kalosm", not(all(feature = "metal", target_os = "macos"))))]
 async fn complete_json(
     llama: &kalosm::language::Llama,
     view: &super::view::DocumentView,
     user: &str,
 ) -> Result<super::plan::Plan, AiError> {
     use super::plan::{json_output_instruction, parse_plan_json, system_prompt};
-    use kalosm::language::ChatModelExt;
-    use llm_samplers::prelude::SampleGreedy;
+    use kalosm::language::{ChatModelExt, GenerationParameters};
 
     let system = format!(
         "{}{}",
@@ -371,13 +486,13 @@ async fn complete_json(
             r#"{"ops":[{"op":"replace","index":1,"old":"Hello","new":"Hi"}]}"#,
         )
         .run(user)
-        .with_sampler(SampleGreedy::new())
+        .with_sampler(GenerationParameters::default().with_max_length(PLAN_MAX_TOKENS))
         .await
         .map_err(|e| AiError::Model(map_model_error(e.to_string())))?;
     parse_plan_json(&text)
 }
 
-#[cfg(feature = "kalosm")]
+#[cfg(all(feature = "kalosm", not(all(feature = "metal", target_os = "macos"))))]
 fn map_model_error(msg: String) -> String {
     if msg.contains("No valid tokens") || msg.contains("No token sampled") {
         format!(

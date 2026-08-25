@@ -63,28 +63,28 @@ the weights.
 
 First run downloads the GGUF into the Kalosm cache. Later runs are local.
 
-On Apple Silicon (`--features metal`) Kalosm's structured decoder can
-fail with `No valid tokens were sampled` even when RAM is plentiful:
-constraint masking plus Metal NaN logits leaves nothing to sample.
-`bl ai` then asks the model for a JSON plan and parses it. The model
-still never writes OOXML.
+On Apple Silicon (`--features metal`) inference is **llama.cpp Metal**:
+every layer is offloaded to the GPU. Kalosm is only used to download
+the GGUF. Candle Metal is not used — it yields NaN logits
+(`No token sampled`) even for TinyLlama. `n_ctx` is capped at 4096 so
+a 128k GGUF does not size a 128k KV cache. Generation stops after 256
+new tokens so a run cannot go forever.
 
 Preset names (`phi-3`, `tinyllama`, …) always win over a file of the
-same name in the current directory. `bl ai` prints `context=` on load.
-If that number is 131072, Kalosm will allocate tens of GB on Metal —
-use `--model phi-3` (4k) or `--model tinyllama` (2k), not phi-3.5.
+same name in the current directory. `bl ai` prints `backend=` and
+`context=` on load. If you still see `backend=kalosm` on a Mac, the
+binary was not built with `--features metal`.
 
 ## Lifecycle
 
 `bl ai` is one-shot. There is no resident daemon and no session that
 outlives the command.
 
-Kalosm's `Llama` is a **channel handle**, not the weights themselves.
-The quantized tensors (DRAM, and Metal / CUDA buffers when those
-features are on) live on a worker thread. Dropping the last handle
-closes the channel; the worker exits and Rust `Drop`s the tensors.
-That happens after the plan is parsed, before the package is written.
-Process exit is the hard guarantee if anything is still unwinding.
+On a Metal Mac the llama.cpp context is dropped after the plan is
+parsed. Elsewhere Kalosm's `Llama` is a **channel handle**: dropping
+it closes the worker and frees the tensors before the package is
+written. Process exit is the hard guarantee if anything is still
+unwinding.
 
 The GGUF on disk is separate. Clear it without leaving Kalosm:
 

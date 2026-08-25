@@ -15,6 +15,9 @@ mod model;
 mod plan;
 mod view;
 
+#[cfg(all(feature = "kalosm", feature = "metal", target_os = "macos"))]
+mod metal_infer;
+
 #[cfg(test)]
 mod pipeline;
 

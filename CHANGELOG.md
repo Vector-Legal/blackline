@@ -11,10 +11,9 @@ Versioning follows [SemVer](https://semver.org) as described in
 ### Fixed
 
 - `bl ai` on Metal no longer dies with `No valid tokens were sampled`.
-  Kalosm structured decoding plus Metal NaN logits left the greedy
-  sampler empty; that is a decoder issue, not a RAM limit. The Metal
-  build now generates a JSON plan and parses it. CPU still tries
-  constrained generation first and falls back to the same JSON path.
+  Kalosm/Candle Metal left the sampler empty (NaN logits). On macOS
+  the Metal build now runs llama.cpp and parses a JSON plan. CPU
+  still tries constrained generation first and falls back to JSON.
 - `--model` preset names win over a same-named file in the current
   directory. A leftover `phi-3` file in Downloads used to load as a
   GGUF and could be the 128k Phi-3.5 weights (tens of GB on Metal).
@@ -22,10 +21,12 @@ Versioning follows [SemVer](https://semver.org) as described in
 - Default AI view cap is 2500 characters (was 16k), so TinyLlama 2k
   and Phi-3 4k are not overstuffed. Use `--from` / `--to` for a
   specific clause.
-- `bl ai` on a `metal` build runs the model on CPU. Kalosm's Metal
-  backend returns `No token sampled` (NaN logits) even for TinyLlama
-  and a 25-line window. That is an upstream decoder bug, not RAM or
-  prompt size.
+- `bl ai --features metal` on macOS runs llama.cpp with every layer on
+  Metal. Kalosm/Candle Metal was returning `No token sampled` (NaN
+  logits) even for TinyLlama; forcing CPU then ran forever because
+  `GenerationParameters` defaults to `max_length = u32::MAX`. Generation
+  is now capped at 256 new tokens. Context allocation is capped at 4k
+  so a 128k GGUF does not size a 128k KV cache.
 
 ## [0.4.1] — 2026-08-25
 
