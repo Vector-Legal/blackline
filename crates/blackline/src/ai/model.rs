@@ -14,7 +14,7 @@ pub const DEFAULT_MODEL: &str = "phi-3";
 pub enum ModelId {
     /// `LlamaSource::phi_3_5_mini_4k_instruct`. The GGUF is 128k context.
     Phi35,
-    /// `LlamaSource::phi_3_mini_4k_instruct` (default). Actually 4k.
+    /// `LlamaSource::phi_3_1_mini_4k_instruct` (default). Actually 4k.
     #[default]
     Phi3,
     /// Llama 3.2 1B Instruct — smallest preset.
@@ -113,7 +113,9 @@ pub async fn load(id: &ModelId, verbose: bool) -> Result<KalosmCompleter, AiErro
 
     let source = match id {
         ModelId::Phi35 => LlamaSource::phi_3_5_mini_4k_instruct(),
-        ModelId::Phi3 => LlamaSource::phi_3_mini_4k_instruct(),
+        // Kalosm's `phi_3_mini_4k_instruct` pins a Hugging Face revision that
+        // 404s. `phi_3_1_mini_4k_instruct` is the same 4k Q4 on `main`.
+        ModelId::Phi3 => LlamaSource::phi_3_1_mini_4k_instruct(),
         ModelId::Llama32_1b => LlamaSource::llama_3_2_1b_chat(),
         ModelId::Llama32_3b => LlamaSource::llama_3_2_3b_chat(),
         ModelId::Llama31_8b => LlamaSource::llama_3_1_8b_chat(),
@@ -121,7 +123,18 @@ pub async fn load(id: &ModelId, verbose: bool) -> Result<KalosmCompleter, AiErro
         ModelId::Qwen25_3b => LlamaSource::qwen_2_5_3b_instruct(),
         ModelId::Qwen25_7b => LlamaSource::qwen_2_5_7b_instruct(),
         ModelId::TinyLlama => LlamaSource::tiny_llama_1_1b_chat(),
-        ModelId::Gguf(path) => LlamaSource::new(FileSource::local(path.clone())),
+        ModelId::Gguf(path) => {
+            let mut source = LlamaSource::new(FileSource::local(path.clone()));
+            // Hugging Face GGUFs often omit the tokenizer. Pair a sibling
+            // `tokenizer.json` when the user places one next to the weights.
+            if let Some(parent) = path.parent() {
+                let tokenizer = parent.join("tokenizer.json");
+                if tokenizer.is_file() {
+                    source = source.with_tokenizer(FileSource::local(tokenizer));
+                }
+            }
+            source
+        }
     };
     let source = source.with_cache(Cache::new(super::cache::cache_dir()?));
 

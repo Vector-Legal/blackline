@@ -51,13 +51,15 @@ bl ai FILE INSTRUCTION
 
 ## Default model
 
-**Phi-3 mini 4k instruct**, quantized, via Kalosm
-(`LlamaSource::phi_3_mini_4k_instruct`). The GGUF is actually 4k
-context, which fits a 16 GB MacBook. Kalosm's `phi_3_5_mini_4k_instruct`
-preset points at bartowski's Phi-3.5 Q4, whose metadata is **128k** —
-Metal then sizes RoPE / KV from that and can take tens of GB. That
-preset stays available as `--model phi-3.5`. `--model` also accepts a
-`.gguf` path.
+**Phi-3.1 mini 4k instruct**, quantized, via Kalosm
+(`LlamaSource::phi_3_1_mini_4k_instruct`). The GGUF is actually 4k
+context, which fits a 16 GB machine. Kalosm's older
+`phi_3_mini_4k_instruct` pin 404s; `phi_3_5_mini_4k_instruct` points at
+bartowski's Phi-3.5 Q4, whose metadata is **128k** — Metal then sizes
+RoPE / KV from that and can take tens of GB. That preset stays
+available as `--model phi-3.5`. `--model` also accepts a `.gguf` path.
+A local GGUF that omits a tokenizer looks for `tokenizer.json` next to
+the weights.
 
 First run downloads the GGUF into the Kalosm cache. Later runs are local.
 

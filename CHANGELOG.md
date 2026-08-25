@@ -15,6 +15,9 @@ Versioning follows [SemVer](https://semver.org) as described in
   sized caches to tens of GB and Mirostat then failed with
   `A weight is invalid in distribution`. Constrained generation
   now uses greedy sampling. `--model phi-3.5` still exists.
+  The older `phi_3_mini_4k_instruct` Hugging Face pin 404s; the
+  default now uses `phi_3_1_mini_4k_instruct`. A local `.gguf` that
+  omits a tokenizer looks for a sibling `tokenizer.json`.
 
 ## [0.4.0] — 2026-08-25
 
