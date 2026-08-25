@@ -24,6 +24,10 @@ Versioning follows [SemVer](https://semver.org) as described in
   A `change thirty days to sixty days` phrase that appears in many
   clauses is still a search hit; only leftover single tokens
   (`the`, `shall`) are treated as too common.
+  An `insert` with `before`/`after` (Phi-3's default, and it has no
+  match) becomes a `replace` when the line already has a same-length
+  phrase (`thirty days` → `sixty days`), otherwise an insert at the
+  end of the paragraph, so one bad op no longer aborts the batch.
   Prompt lines are
   abbreviated without `…`. Ops use a short `old` and the real
   paragraph index. `--from` / `--to` remains an explicit override.

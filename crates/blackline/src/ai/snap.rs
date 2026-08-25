@@ -8,7 +8,7 @@ use std::collections::BTreeSet;
 
 use blackline_core::textutil::find_normalized_ci;
 
-use super::plan::{Op, Plan};
+use super::plan::{Op, Plan, Position};
 
 /// Rewrite replace ops so `old` is a substring of a real paragraph.
 pub(crate) fn snap_plan(plan: &mut Plan, lines: &[String]) {
@@ -22,6 +22,11 @@ pub(crate) fn snap_plan(plan: &mut Plan, lines: &[String]) {
                     SnapOutcome::Replace(ops) => out.extend(ops),
                 }
             }
+            Op::Insert {
+                index,
+                position,
+                text,
+            } => out.push(snap_insert(lines, index, position, text)),
             other => out.push(other),
         }
     }
@@ -106,6 +111,54 @@ fn split_mashed(s: &str) -> Vec<String> {
         .map(strip_prompt_junk)
         .filter(|p| p.chars().count() >= 2)
         .collect()
+}
+
+/// Phi-3 often emits `insert` after a line instead of `replace`. Track
+/// `before`/`after` then dies (`needs match`) and strict apply writes nothing.
+/// A same-length n-gram that shares the last word becomes a replace
+/// (`thirty days` → `sixty days`). Otherwise the insert is remapped to
+/// `end` of the paragraph so it can apply.
+fn snap_insert(lines: &[String], index: u32, position: Position, text: String) -> Op {
+    let text = strip_prompt_junk(&text);
+    if let Some((idx, old, new)) = insert_as_replace(lines, index, &text) {
+        return Op::Replace {
+            index: idx,
+            old,
+            new,
+        };
+    }
+    let position = match position {
+        Position::Before | Position::After => Position::End,
+        other => other,
+    };
+    Op::Insert {
+        index,
+        position,
+        text,
+    }
+}
+
+fn insert_as_replace(lines: &[String], index: u32, text: &str) -> Option<(u32, String, String)> {
+    let words: Vec<&str> = text.split_whitespace().collect();
+    if words.len() < 2 {
+        return None;
+    }
+    let last = *words.last()?;
+    let i = usize::try_from(index).ok()?.checked_sub(1)?;
+    let body = line_body(lines.get(i)?);
+    let line_words: Vec<&str> = body.split_whitespace().collect();
+    let n = words.len();
+    for window in line_words.windows(n) {
+        if !window.last()?.eq_ignore_ascii_case(last) {
+            continue;
+        }
+        let old = window.join(" ");
+        if old.eq_ignore_ascii_case(text) {
+            continue;
+        }
+        return Some((index, old, text.to_string()));
+    }
+    None
 }
 
 fn snap_replace(
@@ -202,7 +255,7 @@ fn line_body(line: &str) -> &str {
 #[cfg(test)]
 mod tests {
     use super::{line_body, snap_plan, snap_replace};
-    use crate::ai::plan::{Op, Plan};
+    use crate::ai::plan::{Op, Plan, Position};
 
     fn numbered() -> Vec<String> {
         vec![
@@ -345,5 +398,43 @@ mod tests {
                 (2, "Phone:".into(), "PHONE:".into()),
             ]
         );
+    }
+
+    #[test]
+    fn insert_after_swaps_a_same_length_phrase() {
+        let lines = vec!["Fees are due within thirty days of invoice date.".into()];
+        let mut plan = Plan {
+            ops: vec![Op::Insert {
+                index: 1,
+                position: Position::After,
+                text: "sixty days".into(),
+            }],
+        };
+        snap_plan(&mut plan, &lines);
+        assert_eq!(
+            replace_triples(&plan),
+            vec![(1, "thirty days".into(), "sixty days".into())]
+        );
+    }
+
+    #[test]
+    fn insert_after_without_a_swap_moves_to_end() {
+        let lines = vec!["Fees are due within thirty days of invoice date.".into()];
+        let mut plan = Plan {
+            ops: vec![Op::Insert {
+                index: 1,
+                position: Position::After,
+                text: "See Exhibit A.".into(),
+            }],
+        };
+        snap_plan(&mut plan, &lines);
+        match &plan.ops[..] {
+            [Op::Insert {
+                index: 1,
+                position: Position::End,
+                text,
+            }] => assert_eq!(text, "See Exhibit A."),
+            other => panic!("expected insert at end, got {other:?}"),
+        }
     }
 }

@@ -220,6 +220,7 @@ pub fn system_prompt(format: Format) -> &'static str {
              visible text). Never paste a whole paragraph, never copy an ellipsis (…), \
              and never join several INDEX lines into one `old`. \
              For capitalization, replace only the first word. Prefer replace. \
+             Never insert when existing words should change — emit replace. \
              DOCX ops become Word tracked changes. Empty ops list if nothing must change."
         }
         Format::Xlsx => {

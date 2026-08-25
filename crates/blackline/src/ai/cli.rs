@@ -178,7 +178,16 @@ async fn run_cli(cli: AiArgs) -> Result<(), AiError> {
         lenient: cli.lenient,
         dry_run: cli.dry_run,
     };
-    let apply_report = apply::apply(file, output.as_deref(), &plan, &opts)?;
+    let apply_report = match apply::apply(file, output.as_deref(), &plan, &opts) {
+        Ok(report) => report,
+        Err(err) => {
+            eprintln!(
+                "apply failed; planned ops: {}",
+                serde_json::to_string(&plan).unwrap_or_else(|_| "{}".into())
+            );
+            return Err(err);
+        }
+    };
     let cache = if cli.clear_cache {
         Some(super::cache::clear_cache()?)
     } else {

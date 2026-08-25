@@ -134,6 +134,43 @@ async fn docx_comment_and_insert() {
 }
 
 #[tokio::test]
+async fn insert_after_without_match_swaps_the_phrase() {
+    let dir = dir();
+    let input = dir.path().join("in.docx");
+    let output = dir.path().join("out.docx");
+    Docx::from_paragraphs(&["Fees are due within thirty days of invoice date."])
+        .unwrap()
+        .save(&input)
+        .unwrap();
+
+    let plan = Plan {
+        ops: vec![Op::Insert {
+            index: 1,
+            position: Position::After,
+            text: "sixty days".into(),
+        }],
+    };
+    let report = run_with_completer(
+        &input,
+        "change thirty days to sixty days",
+        Some(&output),
+        ApplyOptions {
+            author: Some("Jane".into()),
+            ..ApplyOptions::default()
+        },
+        &StaticCompleter::new(plan),
+    )
+    .await
+    .unwrap();
+    assert_eq!(report.apply.failed, 0, "{:?}", report.apply);
+    assert_eq!(report.apply.applied, 1);
+    let edited = Docx::open(&output).unwrap();
+    let text = edited.visible_text().unwrap();
+    assert!(text.contains("sixty days"), "{text}");
+    assert!(!text.contains("thirty days"), "{text}");
+}
+
+#[tokio::test]
 async fn xlsx_set_cell() {
     let dir = dir();
     let input = dir.path().join("in.xlsx");
