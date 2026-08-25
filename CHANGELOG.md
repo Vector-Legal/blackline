@@ -8,6 +8,49 @@ Versioning follows [SemVer](https://semver.org) as described in
 
 ## [Unreleased]
 
+### Added
+
+- `bl ai` no longer requires `--from` / `--to`. Phrases in the
+  instruction (`change thirty days to sixty days`, quoted spans,
+  `change title to …` as the first paragraph) select the numbered
+  view. `every paragraph` / `throughout the document` walks the file
+  in chunks of at most 12 paragraphs. Truncated JSON keeps complete
+  ops. `--from` / `--to` remains an explicit override.
+- Before apply, `snap_plan` rewrites model ops onto text that exists
+  in the paragraph: mashed ` | ` fields become one replace each,
+  `insert` after/before becomes a same-length phrase replace when
+  one exists, all-caps inserts become a first-word replace, and
+  unsnappable leftovers (`H1:`, whitespace-only `old`, short
+  leftover phrases) are dropped.
+
+### Changed
+
+- `bl ai` apply is best-effort by default. One leftover model op no
+  longer throws away a finished plan. `--strict` restores abort-on-
+  first-miss (the library `ApplyOptions` default is still strict).
+  Default stderr is a short status: view size, one `loading model`
+  line, in-place `planning N/M`, then applied/failed. `--verbose`
+  prints cache fetch, unload, planned-op count, and every apply op.
+  Apply errors no longer dump the planned-ops JSON.
+
+### Fixed
+
+- `bl ai` on Metal no longer dies with `No valid tokens were sampled`.
+  Kalosm/Candle Metal left the sampler empty (NaN logits). On macOS
+  `--features metal` now runs llama.cpp with every layer on the GPU
+  and parses a JSON plan. Context allocation is capped at 4k so a
+  128k GGUF does not size a 128k KV cache. Generation is capped at
+  1536 new tokens (or earlier once the JSON object closes).
+  `llama-cpp-2` and `llama-cpp-sys-2` are pinned to 0.1.154 so
+  `cargo install --git` cannot pair an old wrapper with a newer C API.
+  CPU still tries constrained generation first and falls back to JSON.
+- `--model` preset names win over a same-named file in the current
+  directory. A leftover `phi-3` file in Downloads used to load as a
+  GGUF and could be the 128k Phi-3.5 weights (tens of GB on Metal).
+- Default AI view cap is 2500 characters (was 16k), so TinyLlama 2k
+  and Phi-3 4k are not overstuffed. When `--from` / `--to` is omitted,
+  phrases in the instruction select the window.
+
 ## [0.4.1] — 2026-08-25
 
 ### Fixed

@@ -18,9 +18,19 @@ pub const ABOUT: &str = "Local AI that drives blackline: a prompt becomes native
 pub const AFTER_HELP: &str = "The model never writes OOXML. It emits a small op list; blackline applies it.\n\
         DOCX ops become Word tracked changes (pass --author). XLSX and PPTX are silent edits.\n\n\
         Default model is quantized Phi-3 mini 4k (Kalosm). Override with --model.\n\
-        First run downloads the GGUF into the Kalosm cache. The model is a\n\
-        one-shot handle: dropping it closes Kalosm's worker thread, which then\n\
-        frees RAM / Metal / CUDA. `bl ai --clear-cache` deletes the GGUFs.\n\n\
+        First run downloads the GGUF into the Kalosm cache. On Apple Silicon\n\
+        (`--features metal`) inference is llama.cpp Metal (all layers on the\n\
+        GPU). Elsewhere Kalosm owns the tensors and drops them after the plan.\n\
+        `bl ai --clear-cache` deletes the GGUFs.\n\n\
+        You do not pass paragraph indexes. Phrases in the instruction select\n\
+        the view (`change thirty days to sixty days` looks up that text;\n\
+        `change title to …` is the first paragraph). `every paragraph` /\n\
+        `throughout the document` walks the file in chunks. `--from` / `--to`\n\
+        is an optional override, same index space as `bl docx view`.\n\n\
+        Apply is best-effort by default: leftover model ops are reported and\n\
+        the rest still writes. `--strict` aborts on the first miss (same as\n\
+        `bl docx edit`). Default stderr is a few status lines; `--verbose`\n\
+        prints fetch, unload, and every apply op. `--json` is the full report.\n\n\
         Examples:\n  \
         bl ai contract.docx \"change thirty days to sixty days\" -o out.docx --author \"Jane Doe\"\n  \
         bl ai model.xlsx \"set B2 to 42\" --in-place --model llama3.2-1b\n  \
@@ -58,23 +68,26 @@ pub struct AiArgs {
     /// DOCX: edit silently instead of leaving a redline
     #[arg(long)]
     pub no_track: bool,
-    /// Best-effort apply
+    /// Abort apply on the first failed op (default is best-effort).
     #[arg(long)]
+    pub strict: bool,
+    /// Legacy alias for best-effort apply (now the default).
+    #[arg(long, hide = true)]
     pub lenient: bool,
     /// char | word | sentence
     #[arg(long, default_value = "word")]
     pub granularity: String,
-    /// First view index (1-based)
+    /// First view index (1-based). Optional. Default: phrases from the instruction.
     #[arg(long)]
     pub from: Option<usize>,
-    /// Last view index
+    /// Last view index. Optional. Default: phrases from the instruction.
     #[arg(long)]
     pub to: Option<usize>,
     /// XLSX sheet name or 1-based index
     #[arg(long)]
     pub sheet: Option<String>,
-    /// Log model load
-    #[arg(long)]
+    /// Extra status lines (model fetch, unload, every apply op)
+    #[arg(long, short)]
     pub verbose: bool,
     /// Delete downloaded GGUFs from the Kalosm cache
     #[arg(long)]
@@ -130,9 +143,33 @@ async fn run_cli(cli: AiArgs) -> Result<(), AiError> {
     let author = resolve_author(cli.author.as_deref())?;
     let model_id = ModelId::parse(&cli.model)?;
 
-    let view = DocumentView::open(file, cli.from, cli.to, cli.sheet.as_deref())?;
+    let views = DocumentView::windows(
+        file,
+        cli.from,
+        cli.to,
+        cli.sheet.as_deref(),
+        Some(instruction.as_str()),
+    )?;
+    let view_lines: usize = views.iter().map(|v| v.lines.len()).sum();
+    if cli.verbose {
+        let prompt_chars: usize = views.iter().map(DocumentView::prompt_chars).sum();
+        eprintln!(
+            "view {} line(s) in {} chunk(s)  {} prompt chars",
+            view_lines,
+            views.len(),
+            prompt_chars
+        );
+    } else if views.len() > 1 {
+        eprintln!("view {} line(s) in {} chunk(s)", view_lines, views.len());
+    } else {
+        eprintln!("view {view_lines} line(s)");
+    }
 
-    if view.format == super::format::Format::Docx && !cli.no_track && author.is_none() {
+    let format = views
+        .first()
+        .expect("windows always returns at least one view")
+        .format;
+    if format == super::format::Format::Docx && !cli.no_track && author.is_none() {
         return Err(AiError::usage(
             "author required: tracked changes and comments must carry an explicit author \
              (pass --author or set BLACKLINE_AUTHOR)"
@@ -140,15 +177,18 @@ async fn run_cli(cli: AiArgs) -> Result<(), AiError> {
         ));
     }
 
-    let plan = complete_with_model(&model_id, &view, &instruction, cli.verbose).await?;
+    let plan = complete_with_model(&model_id, &views, &instruction, cli.verbose).await?;
 
     let opts = ApplyOptions {
         author,
         granularity,
         no_track: cli.no_track,
-        lenient: cli.lenient,
+        // `--lenient` stays parseable for old scripts; apply is already
+        // best-effort unless `--strict`.
+        lenient: !cli.strict,
         dry_run: cli.dry_run,
     };
+    let _ = cli.lenient;
     let apply_report = apply::apply(file, output.as_deref(), &plan, &opts)?;
     let cache = if cli.clear_cache {
         Some(super::cache::clear_cache()?)
@@ -157,7 +197,7 @@ async fn run_cli(cli: AiArgs) -> Result<(), AiError> {
     };
 
     let report = AiReport {
-        format: view.format,
+        format,
         model: model_id.as_str(),
         plan,
         apply: apply_report,
@@ -170,7 +210,7 @@ async fn run_cli(cli: AiArgs) -> Result<(), AiError> {
             serde_json::to_string_pretty(&report).map_err(|e| AiError::Io(e.to_string()))?
         );
     } else {
-        print_human(&report);
+        print_human(&report, cli.verbose);
         if let Some(cache) = &report.cache {
             eprintln!("{}", super::cache::format_clear_report(cache));
         }
@@ -193,26 +233,26 @@ fn print_clear(json: bool) -> Result<(), AiError> {
 
 async fn complete_with_model(
     id: &ModelId,
-    view: &DocumentView,
+    views: &[DocumentView],
     instruction: &str,
     verbose: bool,
 ) -> Result<Plan, AiError> {
     #[cfg(feature = "kalosm")]
     {
         let completer = super::model::load(id, verbose).await?;
-        let plan = completer.complete(view, instruction).await?;
-        // Last `Llama` clone: dropping the sender closes Kalosm's worker
-        // channel. That thread then drops the quantized tensors (DRAM and
-        // Metal/CUDA). The GGUF on disk is unchanged; use `--clear-cache`.
+        let plan = completer.complete_views(views, instruction).await?;
+        // Drop the runtime (llama.cpp context or Kalosm worker) before
+        // the package write. The GGUF on disk is unchanged; use
+        // `--clear-cache`.
         drop(completer);
         if verbose {
             eprintln!("unloaded model");
         }
-        return Ok(plan);
+        Ok(plan)
     }
     #[cfg(not(feature = "kalosm"))]
     {
-        let _ = (id, view, instruction, verbose);
+        let _ = (id, views, instruction, verbose);
         Err(AiError::usage(
             "this binary was built without Kalosm. Rebuild with --features kalosm:\n  \
              cargo install blackline --features kalosm\n  \
@@ -264,18 +304,45 @@ fn resolve_author(flag: Option<&str>) -> Result<Option<String>, AiError> {
     Ok(None)
 }
 
-fn print_human(report: &AiReport) {
-    eprintln!(
-        "{}  model={}  {} op(s)  applied={}  failed={}  {}",
-        report.format,
-        report.model,
-        report.plan.ops.len(),
-        report.apply.applied,
-        report.apply.failed,
-        report.apply.mode
-    );
-    for op in &report.apply.ops {
-        eprintln!("  [{}] {} {} — {}", op.index, op.status, op.op, op.detail);
+fn print_human(report: &AiReport, verbose: bool) {
+    if verbose {
+        eprintln!(
+            "{}  model={}  planned={}  applied={}  failed={}  {}",
+            report.format,
+            report.model,
+            report.plan.ops.len(),
+            report.apply.applied,
+            report.apply.failed,
+            report.apply.mode
+        );
+        for op in &report.apply.ops {
+            eprintln!("  [{}] {} {} — {}", op.index, op.status, op.op, op.detail);
+        }
+    } else {
+        eprintln!(
+            "{}  model={}  applied={}  failed={}  {}",
+            report.format,
+            report.model,
+            report.apply.applied,
+            report.apply.failed,
+            report.apply.mode
+        );
+    }
+    if !verbose && report.apply.failed > 0 {
+        let preview: Vec<&str> = report
+            .apply
+            .ops
+            .iter()
+            .filter(|op| op.status == "failed")
+            .take(3)
+            .map(|op| op.detail.as_str())
+            .collect();
+        if !preview.is_empty() {
+            eprintln!("  {} failed: {}", report.apply.failed, preview.join("; "));
+            if report.apply.failed > preview.len() {
+                eprintln!("  pass --verbose for every op");
+            }
+        }
     }
     if let Some(path) = &report.output {
         eprintln!("wrote {path}");
@@ -290,7 +357,7 @@ pub async fn run_with_completer<C: Completer>(
     opts: ApplyOptions,
     completer: &C,
 ) -> Result<AiReport, AiError> {
-    let view = DocumentView::open(file, None, None, None)?;
+    let view = DocumentView::open(file, None, None, None, Some(instruction))?;
     let plan = completer.complete(&view, instruction).await?;
     let apply_report = apply::apply(file, output, &plan, &opts)?;
     Ok(AiReport {

@@ -215,10 +215,13 @@ pub fn system_prompt(format: Format) -> &'static str {
     match format {
         Format::Docx => {
             "You edit a Word document by emitting operations against the numbered view. \
-             Copy `old` / `anchor` / `text` spans exactly from the view. Indexes are 1-based. \
-             Only emit ops the instruction requires. Prefer replace over delete+insert. \
-             DOCX ops become Word tracked changes a lawyer can accept or reject. \
-             Do not invent indexes. If nothing must change, emit an empty ops list."
+             Each line is `INDEX| text`. Put INDEX in `index` — it is the number before |, \
+             not 1..N of this window. Copy a short `old`/`anchor` (a few words from the \
+             visible text). Never paste a whole paragraph, never copy an ellipsis (…), \
+             and never join several INDEX lines into one `old`. \
+             For capitalization, replace only the first word. Prefer replace. \
+             Never insert when existing words should change — emit replace. \
+             DOCX ops become Word tracked changes. Empty ops list if nothing must change."
         }
         Format::Xlsx => {
             "You edit an Excel workbook by emitting set_cell operations. \
@@ -236,6 +239,142 @@ pub fn system_prompt(format: Format) -> &'static str {
 /// User message: view + instruction.
 pub fn user_prompt(view: &super::view::DocumentView, instruction: &str) -> String {
     format!("{}\n# Instruction\n{}", view.render(), instruction.trim())
+}
+
+/// Extra line when the model is not token-constrained (Metal).
+pub fn json_output_instruction() -> &'static str {
+    " Reply with one JSON object {\"ops\":[...]} and nothing else. \
+     index is the number before | on the line. old/new are a few words from that one line. \
+     Do not join lines with |. \
+     Example: {\"ops\":[{\"op\":\"replace\",\"index\":21,\"old\":\"Customer\",\"new\":\"CUSTOMER\"}]} \
+     or {\"ops\":[]}."
+}
+
+/// True when `text` contains a fully closed top-level JSON object.
+pub(crate) fn json_object_complete(text: &str) -> bool {
+    extract_json_object(text).is_some()
+}
+
+/// New tokens for a plan. Also the hard stop; generation should stop
+/// earlier once [`json_object_complete`] is true.
+pub(crate) const PLAN_MAX_TOKENS: u32 = 1536;
+
+/// One in-place progress line for a multi-chunk plan.
+pub(crate) fn eprint_chunk_progress(done: usize, total: usize) {
+    if total <= 1 {
+        return;
+    }
+    use std::io::Write;
+    eprint!("\rplanning {done}/{total}");
+    let _ = std::io::stderr().flush();
+    if done == total {
+        eprintln!();
+    }
+}
+
+/// Parse a [`Plan`] from model text. Accepts a bare object or one wrapped
+/// in prose / a markdown fence.
+pub fn parse_plan_json(text: &str) -> Result<Plan, AiError> {
+    let trimmed = text.trim();
+    if let Ok(plan) = serde_json::from_str::<Plan>(trimmed) {
+        return Ok(plan);
+    }
+    if let Some(json) = extract_json_object(trimmed) {
+        if let Ok(plan) = serde_json::from_str::<Plan>(json) {
+            return Ok(plan);
+        }
+    }
+    if let Some(plan) = salvage_plan(trimmed) {
+        return Ok(plan);
+    }
+    if trimmed.contains('{') {
+        return Err(AiError::Model(format!(
+            "model cut off mid-JSON (generation cap). \
+             Keep `old`/`new` to a few words, not the whole paragraph. got: {}",
+            truncate_for_error(trimmed)
+        )));
+    }
+    Err(AiError::Model(format!(
+        "model did not emit a plan object. got: {}",
+        truncate_for_error(trimmed)
+    )))
+}
+
+/// Keep complete ops when generation stops in the middle of the next one.
+fn salvage_plan(text: &str) -> Option<Plan> {
+    let ops_key = text.find("\"ops\"")?;
+    let after_key = &text[ops_key + 5..];
+    let bracket = after_key.find('[')?;
+    let body = &after_key[bracket + 1..];
+    let bytes = body.as_bytes();
+    let mut i = 0usize;
+    let mut ops = Vec::new();
+    loop {
+        while i < body.len() && (bytes[i].is_ascii_whitespace() || bytes[i] == b',') {
+            i += 1;
+        }
+        if i >= body.len() || bytes[i] == b']' {
+            break;
+        }
+        if bytes[i] != b'{' {
+            break;
+        }
+        let Some(obj) = extract_json_object(&body[i..]) else {
+            break;
+        };
+        match serde_json::from_str::<Op>(obj) {
+            Ok(op) => {
+                ops.push(op);
+                i += obj.len();
+            }
+            Err(_) => break,
+        }
+    }
+    if ops.is_empty() {
+        None
+    } else {
+        Some(Plan { ops })
+    }
+}
+
+fn extract_json_object(text: &str) -> Option<&str> {
+    let start = text.find('{')?;
+    let bytes = text.as_bytes();
+    let mut depth = 0i32;
+    let mut in_string = false;
+    let mut escape = false;
+    for (i, &b) in bytes.iter().enumerate().skip(start) {
+        if in_string {
+            if escape {
+                escape = false;
+            } else if b == b'\\' {
+                escape = true;
+            } else if b == b'"' {
+                in_string = false;
+            }
+            continue;
+        }
+        match b {
+            b'"' => in_string = true,
+            b'{' => depth += 1,
+            b'}' => {
+                depth -= 1;
+                if depth == 0 {
+                    return Some(&text[start..=i]);
+                }
+            }
+            _ => {}
+        }
+    }
+    None
+}
+
+fn truncate_for_error(text: &str) -> String {
+    const MAX: usize = 240;
+    if text.len() <= MAX {
+        return text.to_string();
+    }
+    format!("{}…", &text[..MAX])
 }
 
 #[cfg(test)]
@@ -267,9 +406,49 @@ mod tests {
             format: Format::Docx,
             lines: vec!["1| hello".into()],
             truncated: false,
+            window: String::new(),
         };
         let user = user_prompt(&view, "change hello");
         assert!(user.contains("hello"));
         assert!(user.contains("change hello"));
+        assert!(user.contains("INDEX"));
+    }
+
+    #[test]
+    fn parse_plan_from_fence_and_prose() {
+        let plan = super::parse_plan_json(
+            "Sure.\n```json\n{\"ops\":[{\"op\":\"replace\",\"index\":1,\"old\":\"a\",\"new\":\"b\"}]}\n```\n",
+        )
+        .unwrap();
+        assert_eq!(plan.ops.len(), 1);
+        assert_eq!(plan.ops[0].name(), "replace");
+        let empty = super::parse_plan_json("here you go {\"ops\":[]} thanks").unwrap();
+        assert!(empty.ops.is_empty());
+    }
+
+    #[test]
+    fn salvage_keeps_complete_ops_from_truncated_json() {
+        let plan = super::parse_plan_json(
+            r#"{"ops":[
+{"op":"replace","index":1,"old":"Customer:","new":"CUSTOMER:"},
+{"op":"replace","index":2,"old":"Contact:","new":"CONTACT:"},
+{"op":"repl"#,
+        )
+        .unwrap();
+        assert_eq!(plan.ops.len(), 2);
+        assert_eq!(plan.ops[0].name(), "replace");
+    }
+
+    #[test]
+    fn parse_plan_rejects_garbage() {
+        let err = super::parse_plan_json("I cannot do that.").unwrap_err();
+        assert!(err.to_string().contains("did not emit a plan"));
+        let cut = super::parse_plan_json(
+            r#"{"ops":[{"op":"replace","index":1,"old":"H4: Customer shall own"#,
+        )
+        .unwrap_err();
+        assert!(cut.to_string().contains("mid-JSON"), "{cut}");
+        assert!(super::json_object_complete(r#"{"ops":[]}"#));
+        assert!(!super::json_object_complete(r#"{"ops":[{"op":"replace""#));
     }
 }

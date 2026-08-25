@@ -36,8 +36,10 @@ pub enum ModelId {
 }
 
 impl ModelId {
-    /// Parse a `--model` value. A path that exists or ends in `.gguf` is a
-    /// local file; everything else must be a known preset name.
+    /// Parse a `--model` value. Preset names win, even if a same-named
+    /// file exists in cwd (a Downloads/`phi-3` leftover must not steal
+    /// the default). A path is only a GGUF if it ends in `.gguf` or is an
+    /// existing file that is not a preset name.
     pub fn parse(raw: &str) -> Result<Self, AiError> {
         let t = raw.trim();
         if t.is_empty() {
@@ -45,11 +47,21 @@ impl ModelId {
                 "pass --model NAME or a .gguf path".to_string(),
             ));
         }
+        if let Some(preset) = Self::from_preset(t) {
+            return Ok(preset);
+        }
         let path = Path::new(t);
-        if t.ends_with(".gguf") || path.exists() {
+        if t.ends_with(".gguf") || path.is_file() {
             return Ok(Self::Gguf(path.to_path_buf()));
         }
-        Ok(match t {
+        Err(AiError::usage(format!(
+            "unknown model {t:?}. presets: {}; or pass a .gguf path",
+            Self::presets().join(", ")
+        )))
+    }
+
+    fn from_preset(t: &str) -> Option<Self> {
+        Some(match t {
             "phi-3.5" | "phi3.5" => Self::Phi35,
             "phi-3" | "phi3" | "default" => Self::Phi3,
             "llama3.2-1b" | "llama-3.2-1b" => Self::Llama32_1b,
@@ -59,12 +71,7 @@ impl ModelId {
             "qwen2.5-3b" | "qwen-2.5-3b" => Self::Qwen25_3b,
             "qwen2.5-7b" | "qwen-2.5-7b" => Self::Qwen25_7b,
             "tinyllama" | "tiny-llama" => Self::TinyLlama,
-            other => {
-                return Err(AiError::usage(format!(
-                    "unknown model {other:?}. presets: {}; or pass a .gguf path",
-                    Self::presets().join(", ")
-                )));
-            }
+            _ => return None,
         })
     }
 
@@ -100,18 +107,201 @@ impl ModelId {
     }
 }
 
-/// Load the model and wrap it as a [`super::plan::Completer`].
-///
-/// Kalosm's `Llama` is a channel handle. The quantized weights and Metal /
-/// CUDA buffers live on a worker thread. Dropping the last handle closes
-/// the channel; the worker exits and `Drop`s the tensors. There is no
-/// unload API. The GGUF file stays in [`super::cache::cache_dir`].
-#[cfg(feature = "kalosm")]
-pub async fn load(id: &ModelId, verbose: bool) -> Result<KalosmCompleter, AiError> {
-    use kalosm::language::{FileSource, Llama, LlamaSource};
-    use kalosm_common::Cache;
+/// Kalosm sizes RoPE / KV from GGUF `*.context_length`. Above this,
+/// Candle Metal routinely allocates tens of GB. llama.cpp on macOS
+/// caps allocation at [`INFER_CONTEXT`] instead.
+const SAFE_CONTEXT: u32 = 8192;
 
-    let source = match id {
+/// New tokens for a JSON plan. Also the hard stop so a run cannot
+/// go forever (`GenerationParameters` defaults to `u32::MAX`).
+#[cfg(all(feature = "kalosm", not(all(feature = "metal", target_os = "macos"))))]
+const PLAN_MAX_TOKENS: u32 = super::plan::PLAN_MAX_TOKENS;
+
+/// Context we actually allocate (llama.cpp Metal, and the refuse
+/// threshold for Kalosm).
+#[cfg(all(feature = "kalosm", feature = "metal", target_os = "macos"))]
+const INFER_CONTEXT: u32 = super::metal_infer::INFER_CONTEXT;
+
+fn context_length_hint(id: &ModelId) -> Option<u32> {
+    match id {
+        ModelId::Phi35 => Some(131_072),
+        ModelId::Phi3 => Some(4096),
+        ModelId::TinyLlama => Some(2048),
+        ModelId::Gguf(path) => peek_gguf_context_length(path),
+        _ => None,
+    }
+}
+
+#[cfg(all(feature = "kalosm", not(all(feature = "metal", target_os = "macos"))))]
+fn refuse_long_context(id: &ModelId) -> Result<(), AiError> {
+    if matches!(id, ModelId::Phi35) {
+        eprintln!(
+            "warning: phi-3.5 GGUF is 128k context; Kalosm sizes Metal caches \
+             from that (tens of GB). Prefer --model phi-3 or --model tinyllama."
+        );
+        return Ok(());
+    }
+    let Some(n) = context_length_hint(id) else {
+        return Ok(());
+    };
+    if n > SAFE_CONTEXT {
+        return Err(AiError::Model(format!(
+            "GGUF context_length is {n}. Kalosm allocates KV/RoPE from that \
+             metadata — tens of GB on Metal, unrelated to how much RAM the \
+             machine has. Use --model phi-3 (4k) or --model tinyllama (2k)."
+        )));
+    }
+    Ok(())
+}
+
+/// First `*.context_length` that is not `original_context_length`.
+fn peek_gguf_context_length(path: &Path) -> Option<u32> {
+    let mut file = std::fs::File::open(path).ok()?;
+    let mut magic = [0_u8; 4];
+    std::io::Read::read_exact(&mut file, &mut magic).ok()?;
+    if &magic != b"GGUF" {
+        return None;
+    }
+    let mut hdr = [0_u8; 20];
+    std::io::Read::read_exact(&mut file, &mut hdr).ok()?;
+    let n_kv = u64::from_le_bytes(hdr[12..20].try_into().ok()?);
+    for _ in 0..n_kv {
+        let key = read_gguf_string(&mut file)?;
+        let ty = read_u32(&mut file)?;
+        if key.ends_with(".context_length") && !key.ends_with("original_context_length") {
+            return read_gguf_int(ty, &mut file);
+        }
+        skip_gguf_value(ty, &mut file)?;
+    }
+    None
+}
+
+fn read_u32(file: &mut std::fs::File) -> Option<u32> {
+    let mut buf = [0_u8; 4];
+    std::io::Read::read_exact(file, &mut buf).ok()?;
+    Some(u32::from_le_bytes(buf))
+}
+
+fn read_u64(file: &mut std::fs::File) -> Option<u64> {
+    let mut buf = [0_u8; 8];
+    std::io::Read::read_exact(file, &mut buf).ok()?;
+    Some(u64::from_le_bytes(buf))
+}
+
+fn read_gguf_string(file: &mut std::fs::File) -> Option<String> {
+    let n = read_u64(file)? as usize;
+    if n > 1_000_000 {
+        return None;
+    }
+    let mut buf = vec![0_u8; n];
+    std::io::Read::read_exact(file, &mut buf).ok()?;
+    String::from_utf8(buf).ok()
+}
+
+fn read_gguf_int(ty: u32, file: &mut std::fs::File) -> Option<u32> {
+    match ty {
+        4 => read_u32(file),
+        10 => read_u64(file).map(|n| n.min(u64::from(u32::MAX)) as u32),
+        _ => {
+            skip_gguf_value(ty, file)?;
+            None
+        }
+    }
+}
+
+fn skip_gguf_value(ty: u32, file: &mut std::fs::File) -> Option<()> {
+    match ty {
+        0 | 1 | 7 => {
+            let mut b = [0_u8; 1];
+            std::io::Read::read_exact(file, &mut b).ok()
+        }
+        2 | 3 => {
+            let mut b = [0_u8; 2];
+            std::io::Read::read_exact(file, &mut b).ok()
+        }
+        4..=6 => {
+            let mut b = [0_u8; 4];
+            std::io::Read::read_exact(file, &mut b).ok()
+        }
+        8 => {
+            read_gguf_string(file)?;
+            Some(())
+        }
+        9 => {
+            let elem = read_u32(file)?;
+            let n = read_u64(file)?;
+            for _ in 0..n {
+                skip_gguf_value(elem, file)?;
+            }
+            Some(())
+        }
+        10..=12 => {
+            let mut b = [0_u8; 8];
+            std::io::Read::read_exact(file, &mut b).ok()
+        }
+        _ => None,
+    }
+}
+
+/// Hugging Face GGUF coordinates matching Kalosm's presets, so a Mac
+/// Metal run reuses the same cache files as a Kalosm CPU run.
+#[cfg(all(feature = "kalosm", feature = "metal", target_os = "macos"))]
+fn gguf_file_source(id: &ModelId) -> kalosm::language::FileSource {
+    use kalosm::language::FileSource;
+    match id {
+        ModelId::Phi35 => FileSource::huggingface(
+            "bartowski/Phi-3.5-mini-instruct-GGUF",
+            "main",
+            "Phi-3.5-mini-instruct-Q4_K_M.gguf",
+        ),
+        ModelId::Phi3 => FileSource::huggingface(
+            "bartowski/Phi-3.1-mini-4k-instruct-GGUF",
+            "main",
+            "Phi-3.1-mini-4k-instruct-Q4_K_M.gguf",
+        ),
+        ModelId::Llama32_1b => FileSource::huggingface(
+            "lmstudio-community/Llama-3.2-1B-Instruct-GGUF",
+            "main",
+            "Llama-3.2-1B-Instruct-Q4_K_M.gguf",
+        ),
+        ModelId::Llama32_3b => FileSource::huggingface(
+            "lmstudio-community/Llama-3.2-3B-Instruct-GGUF",
+            "main",
+            "Llama-3.2-3B-Instruct-Q4_K_M.gguf",
+        ),
+        ModelId::Llama31_8b => FileSource::huggingface(
+            "lmstudio-community/Meta-Llama-3.1-8B-Instruct-GGUF",
+            "main",
+            "Meta-Llama-3.1-8B-Instruct-Q4_K_M.gguf",
+        ),
+        ModelId::Qwen25_15b => FileSource::huggingface(
+            "Qwen/Qwen2.5-1.5B-Instruct-GGUF",
+            "main",
+            "qwen2.5-1.5b-instruct-q4_k_m.gguf",
+        ),
+        ModelId::Qwen25_3b => FileSource::huggingface(
+            "Qwen/Qwen2.5-3B-Instruct-GGUF",
+            "main",
+            "qwen2.5-3b-instruct-q4_k_m.gguf",
+        ),
+        ModelId::Qwen25_7b => FileSource::huggingface(
+            "bartowski/Qwen2.5-7B-Instruct-GGUF",
+            "main",
+            "Qwen2.5-7B-Instruct-Q4_K_M.gguf",
+        ),
+        ModelId::TinyLlama => FileSource::huggingface(
+            "TheBloke/TinyLlama-1.1B-Chat-v1.0-GGUF",
+            "main",
+            "tinyllama-1.1b-chat-v1.0.Q4_K_M.gguf",
+        ),
+        ModelId::Gguf(path) => FileSource::local(path.clone()),
+    }
+}
+
+#[cfg(all(feature = "kalosm", not(all(feature = "metal", target_os = "macos"))))]
+fn kalosm_source(id: &ModelId) -> kalosm::language::LlamaSource {
+    use kalosm::language::{FileSource, LlamaSource};
+    match id {
         ModelId::Phi35 => LlamaSource::phi_3_5_mini_4k_instruct(),
         // Kalosm's `phi_3_mini_4k_instruct` pins a Hugging Face revision that
         // 404s. `phi_3_1_mini_4k_instruct` is the same 4k Q4 on `main`.
@@ -135,34 +325,104 @@ pub async fn load(id: &ModelId, verbose: bool) -> Result<KalosmCompleter, AiErro
             }
             source
         }
-    };
-    let source = source.with_cache(Cache::new(super::cache::cache_dir()?));
-
-    if matches!(id, ModelId::Phi35) {
-        eprintln!(
-            "warning: phi-3.5 GGUF is 128k context; Kalosm will size caches from that. \
-             Expect high RAM on Metal. Prefer --model phi-3 (the default)."
-        );
     }
-    if verbose {
-        eprintln!(
-            "loading model {}  cache={}",
-            id.as_str(),
-            super::cache::cache_dir()?.display()
-        );
-    }
-    let llama = Llama::builder()
-        .with_source(source)
-        .build()
-        .await
-        .map_err(|e| AiError::Model(format!("failed to load {}: {e}", id.as_str())))?;
-    Ok(KalosmCompleter { llama })
 }
 
-/// Kalosm-backed completer: constrained generation into [`super::plan::Plan`].
+/// Load the model and wrap it as a [`super::plan::Completer`].
+///
+/// On macOS `--features metal`, Kalosm only downloads the GGUF. Inference
+/// is llama.cpp with every layer on Metal. Elsewhere Kalosm's `Llama` is
+/// a channel handle: dropping it closes the worker and frees tensors.
+/// The GGUF file stays in [`super::cache::cache_dir`].
+#[cfg(feature = "kalosm")]
+pub async fn load(id: &ModelId, verbose: bool) -> Result<KalosmCompleter, AiError> {
+    use kalosm_common::Cache;
+
+    let cache_dir = super::cache::cache_dir()?;
+    let cache = Cache::new(cache_dir.clone());
+
+    #[cfg(all(feature = "metal", target_os = "macos"))]
+    {
+        let source = gguf_file_source(id);
+        if verbose {
+            eprintln!("fetching {}  cache={}", id.as_str(), cache_dir.display());
+        }
+        let gguf = cache
+            .get(&source, |_| {})
+            .await
+            .map_err(|e| AiError::Model(format!("failed to fetch {}: {e}", id.as_str())))?;
+        let peeked = peek_gguf_context_length(&gguf);
+        if peeked.unwrap_or(0) > SAFE_CONTEXT {
+            eprintln!(
+                "warning: GGUF context_length is {}; llama.cpp will use {} \
+                 (not the 128k Kalosm/Candle path).",
+                peeked.unwrap_or(0),
+                INFER_CONTEXT
+            );
+        }
+        let n_ctx = peeked
+            .or_else(|| context_length_hint(id))
+            .unwrap_or(INFER_CONTEXT)
+            .min(INFER_CONTEXT);
+        if verbose {
+            eprintln!(
+                "loading model {}  backend=llama.cpp+metal  layers=999  context={}  cache={}",
+                id.as_str(),
+                n_ctx,
+                cache_dir.display()
+            );
+        } else {
+            eprintln!(
+                "loading model {}  backend=llama.cpp+metal  context={}",
+                id.as_str(),
+                n_ctx
+            );
+        }
+        return Ok(KalosmCompleter {
+            gguf,
+            context_length: n_ctx,
+        });
+    }
+
+    #[cfg(not(all(feature = "metal", target_os = "macos")))]
+    {
+        use kalosm::language::Llama;
+
+        let source = kalosm_source(id).with_cache(cache);
+        refuse_long_context(id)?;
+        let ctx = context_length_hint(id);
+        let ctx_label = ctx.map(|n| format!("{n}")).unwrap_or_else(|| "?".into());
+        if verbose {
+            eprintln!(
+                "loading model {}  backend=kalosm  context={}  cache={}",
+                id.as_str(),
+                ctx_label,
+                cache_dir.display()
+            );
+        } else {
+            eprintln!(
+                "loading model {}  backend=kalosm  context={ctx_label}",
+                id.as_str()
+            );
+        }
+        let llama = Llama::builder()
+            .with_source(source)
+            .build()
+            .await
+            .map_err(|e| AiError::Model(format!("failed to load {}: {e}", id.as_str())))?;
+        Ok(KalosmCompleter { llama })
+    }
+}
+
+/// Completer: llama.cpp Metal on macOS, Kalosm elsewhere.
 #[cfg(feature = "kalosm")]
 pub struct KalosmCompleter {
+    #[cfg(not(all(feature = "metal", target_os = "macos")))]
     llama: kalosm::language::Llama,
+    #[cfg(all(feature = "metal", target_os = "macos"))]
+    gguf: PathBuf,
+    #[cfg(all(feature = "metal", target_os = "macos"))]
+    context_length: u32,
 }
 
 #[cfg(feature = "kalosm")]
@@ -172,34 +432,130 @@ impl super::plan::Completer for KalosmCompleter {
         view: &super::view::DocumentView,
         instruction: &str,
     ) -> Result<super::plan::Plan, AiError> {
-        use super::plan::{system_prompt, user_prompt, Plan};
-        use kalosm::language::{ChatModelExt, Parse};
-        use llm_samplers::prelude::SampleGreedy;
-        use std::sync::Arc;
-
-        let task = self
-            .llama
-            .task(system_prompt(view.format))
-            .with_constraints(Arc::new(Plan::new_parser()));
-        let user = user_prompt(view, instruction);
-        // Kalosm's default sampler is Mirostat2, which uses WeightedIndex and
-        // dies with "A weight is invalid in distribution" on NaN logits —
-        // common on Metal with the 128k Phi-3.5 GGUF. Greedy skips that path
-        // and ignores NaNs.
-        task.run(&user)
-            .with_sampler(SampleGreedy::new())
+        self.complete_views(std::slice::from_ref(view), instruction)
             .await
-            .map_err(|e| AiError::Model(map_model_error(e.to_string())))
     }
 }
 
 #[cfg(feature = "kalosm")]
+impl KalosmCompleter {
+    /// One or more views (chunks of a long file) → one merged plan.
+    /// Metal loads the GGUF once for the whole batch.
+    pub async fn complete_views(
+        &self,
+        views: &[super::view::DocumentView],
+        instruction: &str,
+    ) -> Result<super::plan::Plan, AiError> {
+        use super::plan::Plan;
+
+        if views.is_empty() {
+            return Ok(Plan::default());
+        }
+
+        #[cfg(all(feature = "metal", target_os = "macos"))]
+        {
+            use super::plan::{
+                json_output_instruction, parse_plan_json, system_prompt, user_prompt,
+            };
+
+            let jobs: Vec<(String, String)> = views
+                .iter()
+                .map(|view| {
+                    let system = format!(
+                        "{}{}",
+                        system_prompt(view.format),
+                        json_output_instruction()
+                    );
+                    (system, user_prompt(view, instruction))
+                })
+                .collect();
+            let gguf = self.gguf.clone();
+            let n_ctx = self.context_length;
+            let texts = tokio::task::spawn_blocking(move || {
+                super::metal_infer::complete_many(&gguf, &jobs, n_ctx)
+            })
+            .await
+            .map_err(|e| AiError::Model(format!("llama.cpp worker: {e}")))??;
+            let mut plan = Plan::default();
+            for text in texts {
+                plan.ops.extend(parse_plan_json(&text)?.ops);
+            }
+            return Ok(plan);
+        }
+
+        #[cfg(not(all(feature = "metal", target_os = "macos")))]
+        {
+            use super::plan::{system_prompt, user_prompt};
+            use kalosm::language::{ChatModelExt, Parse};
+            use llm_samplers::prelude::SampleGreedy;
+            use std::sync::Arc;
+
+            let mut plan = Plan::default();
+            for (i, view) in views.iter().enumerate() {
+                super::plan::eprint_chunk_progress(i + 1, views.len());
+                let user = user_prompt(view, instruction);
+                let task = self
+                    .llama
+                    .task(system_prompt(view.format))
+                    .with_constraints(Arc::new(Plan::new_parser()));
+                match task.run(&user).with_sampler(SampleGreedy::new()).await {
+                    Ok(part) => plan.ops.extend(part.ops),
+                    Err(e) => {
+                        let msg = e.to_string();
+                        if msg.contains("No valid tokens") || msg.contains("weight is invalid") {
+                            plan.ops
+                                .extend(complete_json(&self.llama, view, &user).await?.ops);
+                        } else {
+                            return Err(AiError::Model(map_model_error(msg)));
+                        }
+                    }
+                }
+            }
+            Ok(plan)
+        }
+    }
+}
+
+#[cfg(all(feature = "kalosm", not(all(feature = "metal", target_os = "macos"))))]
+async fn complete_json(
+    llama: &kalosm::language::Llama,
+    view: &super::view::DocumentView,
+    user: &str,
+) -> Result<super::plan::Plan, AiError> {
+    use super::plan::{json_output_instruction, parse_plan_json, system_prompt};
+    use kalosm::language::{ChatModelExt, GenerationParameters};
+
+    let system = format!(
+        "{}{}",
+        system_prompt(view.format),
+        json_output_instruction()
+    );
+    let text: String = llama
+        .task(system)
+        .with_example(
+            "# docx (1 lines)\n1| Hello world.\n# Instruction\nchange Hello to Hi",
+            r#"{"ops":[{"op":"replace","index":1,"old":"Hello","new":"Hi"}]}"#,
+        )
+        .run(user)
+        .with_sampler(GenerationParameters::default().with_max_length(PLAN_MAX_TOKENS))
+        .await
+        .map_err(|e| AiError::Model(map_model_error(e.to_string())))?;
+    parse_plan_json(&text)
+}
+
+#[cfg(all(feature = "kalosm", not(all(feature = "metal", target_os = "macos"))))]
 fn map_model_error(msg: String) -> String {
-    if msg.contains("weight is invalid") || msg.contains("Sampler error") {
+    if msg.contains("No valid tokens") || msg.contains("No token sampled") {
         format!(
-            "{msg}. The default sampler hit invalid logits (often Metal + \
-             the 128k-context phi-3.5 GGUF). Retry with --model phi-3 or \
-             --model llama3.2-1b."
+            "{msg}. The model produced no usable next token. On Metal that \
+             is usually NaN logits after the prompt overran a 2k/4k context. \
+             Retry with a more specific phrase, or --from 1 --to 30, \
+             not a bigger machine."
+        )
+    } else if msg.contains("weight is invalid") || msg.contains("Sampler error") {
+        format!(
+            "{msg}. The sampler hit invalid logits. Retry with --model phi-3 \
+             (the default) rather than phi-3.5."
         )
     } else {
         msg
@@ -229,5 +585,13 @@ mod tests {
     fn unknown_is_usage() {
         let err = ModelId::parse("gpt-4").unwrap_err();
         assert!(err.is_usage());
+    }
+
+    #[test]
+    fn phi3_is_a_preset_not_a_relative_path() {
+        // `path.exists()` used to win, so a cwd file named `phi-3` loaded
+        // as a GGUF (often the leftover 128k Phi-3.5 weights).
+        assert_eq!(ModelId::parse("phi-3").unwrap(), ModelId::Phi3);
+        assert_eq!(ModelId::parse("tinyllama").unwrap(), ModelId::TinyLlama);
     }
 }

@@ -10,6 +10,7 @@ use serde::Serialize;
 use super::error::AiError;
 use super::format::Format;
 use super::plan::{Op, Plan};
+use super::snap::snap_plan;
 
 /// How a [`Plan`] is applied.
 #[derive(Debug, Clone)]
@@ -89,6 +90,12 @@ fn apply_docx(
     opts: &ApplyOptions,
 ) -> Result<ApplyReport, AiError> {
     let doc = Docx::open(input).map_err(|e| AiError::Apply(e.to_string()))?;
+    let lines = doc
+        .text_lines()
+        .map_err(|e| AiError::Apply(e.to_string()))?;
+    let mut plan = plan.clone();
+    snap_plan(&mut plan, &lines);
+    let plan = &plan;
     if opts.no_track {
         let ops = plan
             .ops

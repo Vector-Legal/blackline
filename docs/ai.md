@@ -39,11 +39,12 @@ bl ai FILE INSTRUCTION
         --dry-run
         --json
         --no-track            DOCX: silent edit, not a redline
-        --lenient
+        --strict              abort on the first failed op
         --granularity char|word|sentence
-        --from N --to N       window the numbered view
+        --from N --to N       optional window; default is phrases from
+                              the instruction
         --sheet NAME          XLSX
-        --verbose
+        --verbose             fetch, unload, and every apply op
         --clear-cache         delete downloaded GGUFs
 ```
 
@@ -63,17 +64,35 @@ the weights.
 
 First run downloads the GGUF into the Kalosm cache. Later runs are local.
 
+On Apple Silicon (`--features metal`) inference is **llama.cpp Metal**:
+every layer is offloaded to the GPU. Kalosm is only used to download
+the GGUF. Candle Metal is not used — it yields NaN logits
+(`No token sampled`) even for TinyLlama. `n_ctx` is capped at 4096 so
+a 128k GGUF does not size a 128k KV cache. Generation stops after the
+plan token cap (1536 new tokens) or as soon as the JSON object closes.
+
+Preset names (`phi-3`, `tinyllama`, …) always win over a file of the
+same name in the current directory. Default stderr is a few status
+lines (`view`, `loading model`, `planning N/M`, applied/failed).
+`--verbose` adds cache path, fetch, unload, planned-op count, and
+every apply op. If you still see `backend=kalosm` on a Mac, the
+binary was not built with `--features metal`.
+
+Apply is **best-effort** by default. A leftover model op is reported
+and the rest still writes. That is the opposite of `bl docx edit`
+(strict unless `--lenient`). Pass `--strict` to abort on the first
+miss. `--json` is the full plan + apply report.
+
 ## Lifecycle
 
 `bl ai` is one-shot. There is no resident daemon and no session that
 outlives the command.
 
-Kalosm's `Llama` is a **channel handle**, not the weights themselves.
-The quantized tensors (DRAM, and Metal / CUDA buffers when those
-features are on) live on a worker thread. Dropping the last handle
-closes the channel; the worker exits and Rust `Drop`s the tensors.
-That happens after the plan is parsed, before the package is written.
-Process exit is the hard guarantee if anything is still unwinding.
+On a Metal Mac the llama.cpp context is dropped after the plan is
+parsed. Elsewhere Kalosm's `Llama` is a **channel handle**: dropping
+it closes the worker and frees the tensors before the package is
+written. Process exit is the hard guarantee if anything is still
+unwinding.
 
 The GGUF on disk is separate. Clear it without leaving Kalosm:
 
@@ -101,17 +120,30 @@ set). The next `bl ai FILE INSTRUCTION` downloads again.
 | `.pptx` | `set_text` |
 
 Indexes are 1-based, the same space as `blackline docx view`. Applied
-through `Docx::track` unless `--no-track`.
+through `Docx::track` unless `--no-track`. You do not have to pass
+`--from` / `--to`:
+
+- `change thirty days to sixty days` looks up that phrase
+- `change title to …` is the first paragraph
+- `update every paragraph …` / `throughout the document` walks the
+  whole file in chunks of at most 12 lines (the GGUF stays loaded)
+
+Each prompt line is abbreviated. The model must copy a **short** `old`
+(a few words) and the number before `|` as `index` — not 1..N of the
+window, and not the whole paragraph. `--from` / `--to` remains an
+explicit override.
 
 ## Pipeline
 
 ```
 FILE + INSTRUCTION
-    → numbered view (blackline)
-    → Kalosm task, constrained to Plan
+    → numbered view (instruction hits, document-wide chunks, or `--from`/`--to`)
+    → JSON Plan (llama.cpp Metal, or Kalosm constrained / JSON)
+    → snap (rewrite ops onto text that exists in the paragraph)
     → blackline track / edit
     → package check
 ```
 
-There is one abstraction, `Completer`. Production is Kalosm. Tests inject
-a canned plan. No tool loop, no RAG, no conversion layer.
+There are two extra types: `Completer` (production is Kalosm / llama.cpp;
+tests inject a canned plan) and `snap_plan` (Phi-3 ops → real spans).
+No tool loop, no RAG, no conversion layer.
