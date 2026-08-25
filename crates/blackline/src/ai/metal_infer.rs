@@ -13,9 +13,10 @@ use llama_cpp_2::context::params::LlamaContextParams;
 use llama_cpp_2::llama_backend::LlamaBackend;
 use llama_cpp_2::llama_batch::LlamaBatch;
 use llama_cpp_2::model::params::LlamaModelParams;
-use llama_cpp_2::model::{AddBos, LlamaChatMessage, LlamaModel, Special};
+use llama_cpp_2::model::{AddBos, LlamaChatMessage, LlamaModel};
 use llama_cpp_2::sampling::LlamaSampler;
-use llama_cpp_2::{send_logs_to_tracing, LogOptions};
+use llama_cpp_2::token::LlamaToken;
+use llama_cpp_2::{send_logs_to_tracing, LogOptions, TokenToStringError};
 
 use super::error::AiError;
 
@@ -30,11 +31,30 @@ pub(crate) const INFER_CONTEXT: u32 = 4096;
 
 fn backend() -> Result<&'static LlamaBackend, AiError> {
     static BACKEND: OnceLock<LlamaBackend> = OnceLock::new();
-    BACKEND.get_or_try_init(|| {
-        send_logs_to_tracing(LogOptions::default().with_logs_enabled(false));
-        LlamaBackend::init()
-            .map_err(|e| AiError::Model(format!("llama.cpp backend init failed: {e}")))
-    })
+    if let Some(existing) = BACKEND.get() {
+        return Ok(existing);
+    }
+    send_logs_to_tracing(LogOptions::default().with_logs_enabled(false));
+    let init = LlamaBackend::init()
+        .map_err(|e| AiError::Model(format!("llama.cpp backend init failed: {e}")))?;
+    let _ = BACKEND.set(init);
+    BACKEND
+        .get()
+        .ok_or_else(|| AiError::Model("llama.cpp backend missing after init".into()))
+}
+
+fn token_piece(model: &LlamaModel, token: LlamaToken) -> String {
+    match model.token_to_piece_bytes(token, 32, true, None) {
+        Ok(bytes) => String::from_utf8_lossy(&bytes).into_owned(),
+        Err(TokenToStringError::InsufficientBufferSpace(need)) => {
+            let n = usize::try_from(need.unsigned_abs()).unwrap_or(256);
+            model
+                .token_to_piece_bytes(token, n.max(1), true, None)
+                .map(|bytes| String::from_utf8_lossy(&bytes).into_owned())
+                .unwrap_or_default()
+        }
+        Err(_) => String::new(),
+    }
 }
 
 /// Run one chat turn on Metal. Returns the raw assistant text.
@@ -91,14 +111,7 @@ pub(crate) fn complete(
         if model.is_eog_token(token) {
             break;
         }
-        match model.token_to_str(token, Special::Tokenize) {
-            Ok(piece) => out.push_str(&piece),
-            Err(_) => {
-                if let Ok(bytes) = model.token_to_bytes(token, Special::Tokenize) {
-                    out.push_str(&String::from_utf8_lossy(&bytes));
-                }
-            }
-        }
+        out.push_str(&token_piece(&model, token));
         batch.clear();
         batch
             .add(token, n_cur, &[0], true)
