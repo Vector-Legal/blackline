@@ -345,7 +345,6 @@ dependencies = [
  "blackline-pptx",
  "blackline-xlsx",
  "clap 4.6.6",
- "dirs",
  "kalosm",
  "predicates",
  "serde",

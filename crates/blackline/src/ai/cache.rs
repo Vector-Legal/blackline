@@ -14,8 +14,10 @@ use super::error::AiError;
 /// points Kalosm at the same path.
 pub const CACHE_DIR_ENV: &str = "BLACKLINE_KALOSM_CACHE";
 
-/// Where Kalosm puts downloaded GGUFs (`dirs::data_dir()/kalosm/cache`),
-/// or [`CACHE_DIR_ENV`] when that is set.
+/// Where Kalosm puts downloaded GGUFs (`DATA_DIR/kalosm/cache`), or
+/// [`CACHE_DIR_ENV`] when that is set. The default matches Kalosm's
+/// `Cache::default` (`dirs::data_dir()/kalosm/cache`) without taking a
+/// `dirs` dependency — that crate pulled MPL-2.0 `option-ext`.
 pub fn cache_dir() -> Result<PathBuf, AiError> {
     if let Ok(raw) = std::env::var(CACHE_DIR_ENV) {
         let trimmed = raw.trim();
@@ -23,7 +25,7 @@ pub fn cache_dir() -> Result<PathBuf, AiError> {
             return Ok(PathBuf::from(trimmed));
         }
     }
-    let data = dirs::data_dir()
+    let data = platform_data_dir()
         .ok_or_else(|| AiError::usage("cannot locate Kalosm cache (no platform data directory)"))?;
     Ok(data.join("kalosm").join("cache"))
 }
@@ -85,7 +87,7 @@ fn refuse_if_too_broad(path: &Path) -> Result<(), AiError> {
             path.display()
         )));
     }
-    if let Some(home) = dirs::home_dir() {
+    if let Some(home) = home_dir() {
         if path == home {
             return Err(AiError::usage(format!(
                 "refusing to clear {}: that is the home directory",
@@ -93,7 +95,7 @@ fn refuse_if_too_broad(path: &Path) -> Result<(), AiError> {
             )));
         }
     }
-    if let Some(data) = dirs::data_dir() {
+    if let Some(data) = platform_data_dir() {
         if path == data {
             return Err(AiError::usage(format!(
                 "refusing to clear {}: that is the platform data directory",
@@ -102,6 +104,48 @@ fn refuse_if_too_broad(path: &Path) -> Result<(), AiError> {
         }
     }
     Ok(())
+}
+
+/// Same rules as `dirs::home_dir` for the platforms we ship.
+fn home_dir() -> Option<PathBuf> {
+    if let Ok(home) = std::env::var("HOME") {
+        if !home.is_empty() {
+            return Some(PathBuf::from(home));
+        }
+    }
+    #[cfg(windows)]
+    if let Ok(profile) = std::env::var("USERPROFILE") {
+        if !profile.is_empty() {
+            return Some(PathBuf::from(profile));
+        }
+    }
+    None
+}
+
+/// Same rules as `dirs::data_dir` / Kalosm `Cache::default`.
+fn platform_data_dir() -> Option<PathBuf> {
+    #[cfg(target_os = "macos")]
+    {
+        return home_dir().map(|h| h.join("Library").join("Application Support"));
+    }
+    #[cfg(windows)]
+    {
+        if let Ok(appdata) = std::env::var("APPDATA") {
+            if !appdata.is_empty() {
+                return Some(PathBuf::from(appdata));
+            }
+        }
+        return None;
+    }
+    #[cfg(not(any(target_os = "macos", windows)))]
+    {
+        if let Ok(xdg) = std::env::var("XDG_DATA_HOME") {
+            if !xdg.is_empty() {
+                return Some(PathBuf::from(xdg));
+            }
+        }
+        home_dir().map(|h| h.join(".local").join("share"))
+    }
 }
 
 fn dir_size(path: &Path) -> io::Result<u64> {
