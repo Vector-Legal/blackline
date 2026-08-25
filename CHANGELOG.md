@@ -8,6 +8,13 @@ Versioning follows [SemVer](https://semver.org) as described in
 
 ## [Unreleased]
 
+### Added
+
+- `bl llm FILE INSTRUCTION` is a first-class verb on the same Kalosm
+  pipeline as `bl ai`. Flags, feature gating, and apply path are
+  identical. Default `cargo install blackline` stays lean;
+  `--features kalosm` is still required to run a model.
+
 ## [0.4.1] — 2026-08-25
 
 ### Fixed

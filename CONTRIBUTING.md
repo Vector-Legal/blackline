@@ -61,7 +61,7 @@ crates/blackline-core/    OPC package, XML DOM, TreeOp, formula, patch, update
 crates/blackline-docx/    WordprocessingML (including track / redline)
 crates/blackline-xlsx/    SpreadsheetML
 crates/blackline-pptx/    PresentationML
-crates/blackline/         blackline / bl binaries (including `bl ai`)
+crates/blackline/         blackline / bl binaries (including `bl ai` / `bl llm`)
 docs/                    architecture, CLI, ai, releasing, going public
 ```
 

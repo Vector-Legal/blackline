@@ -1,7 +1,7 @@
 //! `blackline` — an agent-first CLI for DOCX / XLSX / PPTX.
 //!
-//! Canonical grammar: `blackline <format> <verb> [args]` plus `ai`,
-//! `unpack`, `pack`, and `xml`.
+//! Canonical grammar: `blackline <format> <verb> [args]` plus `ai` /
+//! `llm`, `unpack`, `pack`, and `xml`.
 
 mod ai;
 mod cmd_ai;
@@ -44,6 +44,7 @@ use clap::{Parser, Subcommand};
         blackline track settle FILE --accept|--reject [--author NAME] -o OUT\n\n\
         Natural language (local Kalosm model; rebuild with --features kalosm):\n  \
         blackline ai FILE INSTRUCTION -o OUT --author NAME\n  \
+        blackline llm FILE INSTRUCTION -o OUT --author NAME\n  \
         blackline ai --clear-cache\n\n\
         Generate a synthetic test corpus:\n  \
         blackline fixtures DIR"
@@ -83,6 +84,9 @@ enum Commands {
     /// Local AI: a prompt becomes native OOXML edits
     #[command(about = ai::ABOUT, after_help = ai::AFTER_HELP)]
     Ai(ai::AiArgs),
+    /// Same pipeline as `ai` (Kalosm → blackline ops)
+    #[command(about = ai::LLM_ABOUT, after_help = ai::AFTER_HELP)]
+    Llm(ai::AiArgs),
     /// Unpack an OOXML package into pretty-printed XML
     Unpack {
         /// Package
@@ -113,7 +117,7 @@ pub fn run() -> ExitCode {
         Commands::Pptx { cmd } => cmd_pptx::run(cmd),
         Commands::Xml { cmd } => cmd_xml::run(cmd),
         Commands::Track { cmd } => cmd_track::run(cmd),
-        Commands::Ai(args) => cmd_ai::run(args),
+        Commands::Ai(args) | Commands::Llm(args) => cmd_ai::run(args),
         Commands::Unpack {
             input_file,
             output_directory,

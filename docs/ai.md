@@ -1,15 +1,17 @@
-# `bl ai`
+# `bl ai` / `bl llm`
 
 Natural-language frontend for blackline. A local Kalosm model emits ops;
 blackline applies them as native OOXML. The model never writes XML.
+`bl llm` is the same verb as `bl ai` — same flags, same pipeline.
 
 ```
 bl ai FILE INSTRUCTION
+bl llm FILE INSTRUCTION
 ```
 
 Kalosm is opt-in so a default `cargo install blackline` stays lean.
-`bl ai --help` always works; running a prompt without the feature
-prints the rebuild line.
+`bl ai --help` and `bl llm --help` always work; running a prompt without
+the feature prints the rebuild line.
 
 ```
 cargo install blackline --features kalosm          # CPU, quantized

@@ -18,4 +18,4 @@ mod view;
 #[cfg(test)]
 mod pipeline;
 
-pub(crate) use cli::{run_args, AiArgs, ABOUT, AFTER_HELP};
+pub(crate) use cli::{run_args, AiArgs, ABOUT, AFTER_HELP, LLM_ABOUT};

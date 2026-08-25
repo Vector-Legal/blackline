@@ -239,9 +239,9 @@ those revisions first.
 
 ## AI sector
 
-`bl ai` lives in the CLI crate, not a format crate. It depends on the
-format façades and does not add models, prompts, or conversion to
-`blackline-core`.
+`bl ai` and `bl llm` live in the CLI crate, not a format crate. They
+share one Kalosm pipeline and depend on the format façades. That path
+does not add models, prompts, or conversion to `blackline-core`.
 
 ```
 prompt + numbered view  →  Kalosm (constrained Plan)  →  Docx::track / Xlsx::edit / Pptx::edit
@@ -252,7 +252,7 @@ never downloads a GGUF. Default model is quantized Phi-3 mini 4k;
 `--model` overrides. PDF and Markdown stay out of scope. The Kalosm
 `Llama` handle is dropped after the plan is parsed; Kalosm's worker
 thread then frees the tensors. There is no resident model.
-`bl ai --clear-cache` deletes the on-disk GGUFs.
+`bl ai --clear-cache` / `bl llm --clear-cache` deletes the on-disk GGUFs.
 
 See [ai.md](ai.md).
 

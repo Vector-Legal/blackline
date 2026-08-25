@@ -29,7 +29,7 @@ on it.
 | [`blackline-docx`](crates/blackline-docx) | WordprocessingML: view, search, edit, redline, track, comments, create, check |
 | [`blackline-xlsx`](crates/blackline-xlsx) | SpreadsheetML: sheets, cells, shared strings, create, edit, check |
 | [`blackline-pptx`](crates/blackline-pptx) | PresentationML: slides, text frames, create, edit, check |
-| [`blackline`](crates/blackline) | Agent-first noun-verb CLI (`blackline` / `bl`), including `bl ai` |
+| [`blackline`](crates/blackline) | Agent-first noun-verb CLI (`blackline` / `bl`), including `bl ai` / `bl llm` |
 
 Docs: [architecture](docs/architecture.md) · [CLI reference](docs/cli.md) ·
 [ai](docs/ai.md) ·
@@ -38,7 +38,7 @@ Docs: [architecture](docs/architecture.md) · [CLI reference](docs/cli.md) ·
 
 ```bash
 cargo install blackline              # binaries: blackline, bl
-cargo install blackline --features kalosm   # same CLI, plus a working `bl ai`
+cargo install blackline --features kalosm   # same CLI, plus a working `bl ai` / `bl llm`
 cargo add blackline-docx            # or blackline-xlsx / blackline-pptx
 ```
 
@@ -62,7 +62,7 @@ Install (Rust toolchain required; `bl` is an alias for `blackline`):
     bl --version
 
 Grammar is `bl <format> <verb> FILE [args]`, where format is docx | xlsx |
-pptx, plus the `track`, `xml`, `ai`, `unpack`, `pack` and `fixtures` commands.
+pptx, plus the `track`, `xml`, `ai`, `llm`, `unpack`, `pack` and `fixtures` commands.
 
 Rules that matter:
 - `info`, `check`, `changes`, `comments` and `--json` always emit JSON. Parse
@@ -118,7 +118,7 @@ list, or see docs/cli.md.
 Natural language (local AI on the same CLI; install with `--features kalosm`,
 and add `,metal` on Apple Silicon or `,cuda` on NVIDIA):
 
-    bl ai contract.docx "change thirty days to sixty days" \
+    bl llm contract.docx "change thirty days to sixty days" \
         -o revised.docx --author "Jane Doe"
     bl ai --clear-cache
 ````
@@ -141,6 +141,7 @@ pptx   view | info | find | edit | create | check | cat | parts
 xml    get | eval | select | edit | patch | update
 track  apply | redline | changes | comments | settle
 ai     FILE INSTRUCTION
+llm    FILE INSTRUCTION   # same pipeline as ai
 unpack FILE DIR
 pack   DIR FILE
 fixtures DIR
@@ -196,9 +197,9 @@ bl unpack file.docx unpacked/ && bl pack unpacked/ out.docx
 bl fixtures ./corpus
 
 # Natural language — same CLI; needs `--features kalosm` to run a model
-bl ai contract.docx "change thirty days to sixty days" \
+bl llm contract.docx "change thirty days to sixty days" \
     -o revised.docx --author "Jane Doe"
-bl ai --clear-cache
+bl llm --clear-cache
 ```
 
 ### Conventions
@@ -216,14 +217,14 @@ Edits are **strict** unless `--lenient` is passed. `--dry-run` validates without
 
 ### Natural language
 
-`bl ai` is a subcommand on this CLI. A local Kalosm model emits the op
-list; blackline applies it. Default model is quantized Phi-3 mini 4k.
-`cargo install blackline` stays lean; rebuild with `--features kalosm`
-(plus `metal` or `cuda`) so the model runtime is present.
-See [docs/ai.md](docs/ai.md).
+`bl ai` and `bl llm` are the same subcommand on this CLI. A local
+Kalosm model emits the op list; blackline applies it. Default model is
+quantized Phi-3 mini 4k. `cargo install blackline` stays lean; rebuild
+with `--features kalosm` (plus `metal` or `cuda`) so the model runtime
+is present. See [docs/ai.md](docs/ai.md).
 
 ```bash
-bl ai contract.docx "change thirty days to sixty days" \
+bl llm contract.docx "change thirty days to sixty days" \
     -o revised.docx --author "Jane Doe"
 bl ai --clear-cache
 ```
@@ -320,7 +321,7 @@ crates/
 ├── blackline-docx/    # document façade, edits, revisions, track, comments
 ├── blackline-xlsx/    # workbook, cells, shared strings
 ├── blackline-pptx/    # presentation, slides
-└── blackline/         # bins blackline + bl, including `bl ai`
+└── blackline/         # bins blackline + bl, including `bl ai` / `bl llm`
 docs/                  # architecture, CLI, ai, releasing, going public
 ```
 

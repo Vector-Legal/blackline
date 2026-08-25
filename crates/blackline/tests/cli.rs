@@ -661,7 +661,8 @@ fn ai_help_is_on_the_main_cli() {
     bl().args(["--help"])
         .assert()
         .success()
-        .stdout(predicate::str::contains("Local AI"));
+        .stdout(predicate::str::contains("Local AI"))
+        .stdout(predicate::str::contains("llm"));
     bl().args(["ai", "--help"])
         .assert()
         .success()
@@ -670,6 +671,26 @@ fn ai_help_is_on_the_main_cli() {
         .stdout(predicate::str::contains("--author"))
         .stdout(predicate::str::contains("--dry-run"))
         .stdout(predicate::str::contains("--clear-cache"));
+}
+
+#[test]
+fn llm_is_a_first_class_alias_of_ai() {
+    bl().args(["llm", "--help"])
+        .assert()
+        .success()
+        .stdout(predicate::str::contains("phi-3"))
+        .stdout(predicate::str::contains("--model"))
+        .stdout(predicate::str::contains("--author"))
+        .stdout(predicate::str::contains("--dry-run"))
+        .stdout(predicate::str::contains("--clear-cache"))
+        .stdout(predicate::str::contains("Same pipeline as"));
+    let dir = fixtures();
+    let file = path(&dir, "simple.docx");
+    bl().args(["llm", &file, "change hello to hi", "--author", "Jane"])
+        .assert()
+        .failure()
+        .code(2)
+        .stderr(predicate::str::contains("-o/--output"));
 }
 
 #[test]
@@ -780,6 +801,18 @@ fn ai_without_kalosm_explains_rebuild() {
     let file = path(&dir, "simple.docx");
     bl().args([
         "ai",
+        &file,
+        "change hello to hi",
+        "--dry-run",
+        "--author",
+        "Jane",
+    ])
+    .assert()
+    .failure()
+    .code(2)
+    .stderr(predicate::str::contains("--features kalosm"));
+    bl().args([
+        "llm",
         &file,
         "change hello to hi",
         "--dry-run",

@@ -5,6 +5,7 @@
 ```
 blackline <format> <verb> [args]
 blackline ai FILE INSTRUCTION
+blackline llm FILE INSTRUCTION
 blackline unpack FILE DIR
 blackline pack DIR FILE
 blackline fixtures DIR
@@ -184,10 +185,12 @@ blackline fixtures DIR
 
 ## Natural language
 
-`bl ai` is a subcommand on this CLI. See [ai.md](ai.md).
+`bl ai` and `bl llm` are the same subcommand on this CLI. See
+[ai.md](ai.md).
 
 ```
 blackline ai FILE INSTRUCTION -o OUT --author NAME
+blackline llm FILE INSTRUCTION -o OUT --author NAME
 blackline ai --clear-cache
 ```
 

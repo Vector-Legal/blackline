@@ -1,4 +1,4 @@
-//! `bl ai FILE INSTRUCTION` — a prompt becomes native OOXML edits.
+//! `bl ai` / `bl llm FILE INSTRUCTION` — a prompt becomes native OOXML edits.
 
 use std::path::PathBuf;
 
@@ -14,15 +14,19 @@ use super::view::DocumentView;
 /// One-line about text for `bl ai`.
 pub const ABOUT: &str = "Local AI that drives blackline: a prompt becomes native OOXML edits";
 
+/// One-line about text for `bl llm` (same pipeline as [`ABOUT`]).
+pub const LLM_ABOUT: &str = "Same pipeline as `ai`: a local model emits native OOXML edits";
+
 /// Longer help shown after the flag list.
 pub const AFTER_HELP: &str = "The model never writes OOXML. It emits a small op list; blackline applies it.\n\
         DOCX ops become Word tracked changes (pass --author). XLSX and PPTX are silent edits.\n\n\
         Default model is quantized Phi-3 mini 4k (Kalosm). Override with --model.\n\
         First run downloads the GGUF into the Kalosm cache. The model is a\n\
         one-shot handle: dropping it closes Kalosm's worker thread, which then\n\
-        frees RAM / Metal / CUDA. `bl ai --clear-cache` deletes the GGUFs.\n\n\
+        frees RAM / Metal / CUDA. `bl ai --clear-cache` (or `bl llm --clear-cache`) deletes the GGUFs.\n\
+        `bl llm` is the same verb as `bl ai`.\n\n\
         Examples:\n  \
-        bl ai contract.docx \"change thirty days to sixty days\" -o out.docx --author \"Jane Doe\"\n  \
+        bl llm contract.docx \"change thirty days to sixty days\" -o out.docx --author \"Jane Doe\"\n  \
         bl ai model.xlsx \"set B2 to 42\" --in-place --model llama3.2-1b\n  \
         bl ai deck.pptx \"set the title to Q3\" -o out.pptx --model ./phi.gguf\n  \
         bl ai contract.docx \"flag the indemnity clause\" --dry-run --json --author Jane\n  \

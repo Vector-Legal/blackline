@@ -1,4 +1,4 @@
-//! `blackline ai FILE INSTRUCTION`.
+//! `blackline ai|llm FILE INSTRUCTION`.
 
 use crate::ai::{run_args, AiArgs};
 
