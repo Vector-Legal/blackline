@@ -364,12 +364,20 @@ pub async fn load(id: &ModelId, verbose: bool) -> Result<KalosmCompleter, AiErro
             .or_else(|| context_length_hint(id))
             .unwrap_or(INFER_CONTEXT)
             .min(INFER_CONTEXT);
-        eprintln!(
-            "loading model {}  backend=llama.cpp+metal  layers=999  context={}  cache={}",
-            id.as_str(),
-            n_ctx,
-            cache_dir.display()
-        );
+        if verbose {
+            eprintln!(
+                "loading model {}  backend=llama.cpp+metal  layers=999  context={}  cache={}",
+                id.as_str(),
+                n_ctx,
+                cache_dir.display()
+            );
+        } else {
+            eprintln!(
+                "loading model {}  backend=llama.cpp+metal  context={}",
+                id.as_str(),
+                n_ctx
+            );
+        }
         return Ok(KalosmCompleter {
             gguf,
             context_length: n_ctx,
@@ -380,17 +388,23 @@ pub async fn load(id: &ModelId, verbose: bool) -> Result<KalosmCompleter, AiErro
     {
         use kalosm::language::Llama;
 
-        let _ = verbose;
         let source = kalosm_source(id).with_cache(cache);
         refuse_long_context(id)?;
         let ctx = context_length_hint(id);
         let ctx_label = ctx.map(|n| format!("{n}")).unwrap_or_else(|| "?".into());
-        eprintln!(
-            "loading model {}  backend=kalosm  context={}  cache={}",
-            id.as_str(),
-            ctx_label,
-            cache_dir.display()
-        );
+        if verbose {
+            eprintln!(
+                "loading model {}  backend=kalosm  context={}  cache={}",
+                id.as_str(),
+                ctx_label,
+                cache_dir.display()
+            );
+        } else {
+            eprintln!(
+                "loading model {}  backend=kalosm  context={ctx_label}",
+                id.as_str()
+            );
+        }
         let llama = Llama::builder()
             .with_source(source)
             .build()

@@ -151,18 +151,19 @@ async fn run_cli(cli: AiArgs) -> Result<(), AiError> {
         Some(instruction.as_str()),
     )?;
     let view_lines: usize = views.iter().map(|v| v.lines.len()).sum();
-    let prompt_chars: usize = views.iter().map(DocumentView::prompt_chars).sum();
-    let window = views
-        .first()
-        .map(|v| v.window.as_str())
-        .filter(|s| !s.is_empty());
-    eprintln!(
-        "view {} line(s) in {} chunk(s)  {} prompt chars{}",
-        view_lines,
-        views.len(),
-        prompt_chars,
-        window.map(|w| format!("  {w}")).unwrap_or_default()
-    );
+    if cli.verbose {
+        let prompt_chars: usize = views.iter().map(DocumentView::prompt_chars).sum();
+        eprintln!(
+            "view {} line(s) in {} chunk(s)  {} prompt chars",
+            view_lines,
+            views.len(),
+            prompt_chars
+        );
+    } else if views.len() > 1 {
+        eprintln!("view {} line(s) in {} chunk(s)", view_lines, views.len());
+    } else {
+        eprintln!("view {view_lines} line(s)");
+    }
 
     let format = views
         .first()
@@ -182,9 +183,12 @@ async fn run_cli(cli: AiArgs) -> Result<(), AiError> {
         author,
         granularity,
         no_track: cli.no_track,
+        // `--lenient` stays parseable for old scripts; apply is already
+        // best-effort unless `--strict`.
         lenient: !cli.strict,
         dry_run: cli.dry_run,
     };
+    let _ = cli.lenient;
     let apply_report = apply::apply(file, output.as_deref(), &plan, &opts)?;
     let cache = if cli.clear_cache {
         Some(super::cache::clear_cache()?)
@@ -301,20 +305,30 @@ fn resolve_author(flag: Option<&str>) -> Result<Option<String>, AiError> {
 }
 
 fn print_human(report: &AiReport, verbose: bool) {
-    eprintln!(
-        "{}  model={}  {} op(s)  applied={}  failed={}  {}",
-        report.format,
-        report.model,
-        report.plan.ops.len(),
-        report.apply.applied,
-        report.apply.failed,
-        report.apply.mode
-    );
     if verbose {
+        eprintln!(
+            "{}  model={}  planned={}  applied={}  failed={}  {}",
+            report.format,
+            report.model,
+            report.plan.ops.len(),
+            report.apply.applied,
+            report.apply.failed,
+            report.apply.mode
+        );
         for op in &report.apply.ops {
             eprintln!("  [{}] {} {} — {}", op.index, op.status, op.op, op.detail);
         }
-    } else if report.apply.failed > 0 {
+    } else {
+        eprintln!(
+            "{}  model={}  applied={}  failed={}  {}",
+            report.format,
+            report.model,
+            report.apply.applied,
+            report.apply.failed,
+            report.apply.mode
+        );
+    }
+    if !verbose && report.apply.failed > 0 {
         let preview: Vec<&str> = report
             .apply
             .ops

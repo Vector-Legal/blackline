@@ -31,7 +31,7 @@ Rules that matter:
 - Indices in edit and track ops are 1-based.
 - Tracked changes and comments need `--author NAME`, or set BLACKLINE_AUTHOR.
 - Edits are strict: if one op fails, nothing is written. `--dry-run` to test,
-  `--lenient` for best-effort.
+  `--lenient` for best-effort. `bl ai` is best-effort unless `--strict`.
 - Exit codes: 0 success, 1 operation failed, 2 usage error.
 - Write with `-o OUT` or `--in-place`. JSON args take inline JSON,
   `@file.json`, or `-` for stdin.
@@ -77,8 +77,9 @@ Run `bl <format> --help` for the full verb list.
 
 Natural language (rebuild with `--features kalosm` so the model is present).
 You do not pass paragraph indexes — phrases in the instruction select the
-view. The model loads for that command only and is dropped before the file is
-written. `bl ai --clear-cache` deletes the downloaded GGUFs.
+view. Apply is best-effort (`--strict` to abort). The model loads for that
+command only and is dropped before the file is written. `bl ai --clear-cache`
+deletes the downloaded GGUFs.
 
     bl ai contract.docx "change thirty days to sixty days" \
         -o revised.docx --author "Jane Doe"

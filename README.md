@@ -70,7 +70,8 @@ Rules that matter:
 - Indices in edit and track ops are **1-based**.
 - Any tracked change or comment needs `--author NAME`, or set BLACKLINE_AUTHOR.
 - Edits are strict: if one op fails, nothing is written. Add `--dry-run` to
-  test a recipe, `--lenient` for best-effort.
+  test a recipe, `--lenient` for best-effort. `bl ai` is the opposite:
+  best-effort unless you pass `--strict`.
 - Exit codes: 0 success, 1 operation failed, 2 usage error.
 - Write with `-o OUT` or `--in-place`. JSON args accept inline JSON,
   `@file.json`, or `-` for stdin.
@@ -219,7 +220,8 @@ Edits are **strict** unless `--lenient` is passed. `--dry-run` validates without
 `bl ai` is a subcommand on this CLI. A local Kalosm model emits the op
 list; blackline applies it. Default model is quantized Phi-3 mini 4k.
 You do not pass `--from` / `--to`: phrases in the instruction select
-the numbered view. `cargo install blackline` stays lean; rebuild with
+the numbered view. Apply is best-effort (`--strict` to abort on the
+first miss). `cargo install blackline` stays lean; rebuild with
 `--features kalosm` (plus `metal` or `cuda`) so the model runtime is
 present. See [docs/ai.md](docs/ai.md).
 

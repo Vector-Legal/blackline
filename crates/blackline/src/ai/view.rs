@@ -25,9 +25,7 @@ pub const CONTEXT_CHARS: usize = 2_500;
 /// not eat the whole window and tempt the model to copy it into `old`.
 pub const PROMPT_LINE_CHARS: usize = 120;
 
-/// Max paragraphs per model call. ~27 ops (two 2500-char chunks of a
-/// YC form) overflowed the generation cap mid-JSON. 12 short replaces
-/// fit; leftover lines go to the next chunk.
+/// Max paragraphs per model call so the plan JSON can finish.
 const MAX_CHUNK_LINES: usize = 12;
 
 /// Paragraphs kept on each side of an instruction hit.

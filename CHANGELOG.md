@@ -30,30 +30,26 @@ Versioning follows [SemVer](https://semver.org) as described in
   first-miss (the library `ApplyOptions` default is still strict).
   Default stderr is a short status: view size, one `loading model`
   line, in-place `planning N/M`, then applied/failed. `--verbose`
-  prints cache fetch, unload, and every apply op. Apply errors no
-  longer dump the planned-ops JSON.
+  prints cache fetch, unload, planned-op count, and every apply op.
+  Apply errors no longer dump the planned-ops JSON.
 
 ### Fixed
 
 - `bl ai` on Metal no longer dies with `No valid tokens were sampled`.
   Kalosm/Candle Metal left the sampler empty (NaN logits). On macOS
-  the Metal build now runs llama.cpp and parses a JSON plan. CPU
-  still tries constrained generation first and falls back to JSON.
+  `--features metal` now runs llama.cpp with every layer on the GPU
+  and parses a JSON plan. Context allocation is capped at 4k so a
+  128k GGUF does not size a 128k KV cache. Generation is capped at
+  1536 new tokens (or earlier once the JSON object closes).
+  `llama-cpp-2` and `llama-cpp-sys-2` are pinned to 0.1.154 so
+  `cargo install --git` cannot pair an old wrapper with a newer C API.
+  CPU still tries constrained generation first and falls back to JSON.
 - `--model` preset names win over a same-named file in the current
   directory. A leftover `phi-3` file in Downloads used to load as a
   GGUF and could be the 128k Phi-3.5 weights (tens of GB on Metal).
-  `bl ai` now prints the model and context length on every run.
 - Default AI view cap is 2500 characters (was 16k), so TinyLlama 2k
   and Phi-3 4k are not overstuffed. When `--from` / `--to` is omitted,
   phrases in the instruction select the window.
-- `bl ai --features metal` on macOS runs llama.cpp with every layer on
-  Metal. Kalosm/Candle Metal was returning `No token sampled` (NaN
-  logits) even for TinyLlama; forcing CPU then ran forever because
-  `GenerationParameters` defaults to `max_length = u32::MAX`. Generation
-  is now capped at 256 new tokens. Context allocation is capped at 4k
-  so a 128k GGUF does not size a 128k KV cache. `llama-cpp-2` and
-  `llama-cpp-sys-2` are pinned to the same 0.1.154 so
-  `cargo install --git` cannot pair an old wrapper with a newer C API.
 
 ## [0.4.1] — 2026-08-25
 

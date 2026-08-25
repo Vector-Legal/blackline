@@ -68,13 +68,14 @@ On Apple Silicon (`--features metal`) inference is **llama.cpp Metal**:
 every layer is offloaded to the GPU. Kalosm is only used to download
 the GGUF. Candle Metal is not used — it yields NaN logits
 (`No token sampled`) even for TinyLlama. `n_ctx` is capped at 4096 so
-a 128k GGUF does not size a 128k KV cache. Generation stops after 256
-new tokens so a run cannot go forever.
+a 128k GGUF does not size a 128k KV cache. Generation stops after the
+plan token cap (1536 new tokens) or as soon as the JSON object closes.
 
 Preset names (`phi-3`, `tinyllama`, …) always win over a file of the
-same name in the current directory. `bl ai` prints one `loading model`
-line with `backend=` and `context=`. `--verbose` also prints cache
-fetch and unload. If you still see `backend=kalosm` on a Mac, the
+same name in the current directory. Default stderr is a few status
+lines (`view`, `loading model`, `planning N/M`, applied/failed).
+`--verbose` adds cache path, fetch, unload, planned-op count, and
+every apply op. If you still see `backend=kalosm` on a Mac, the
 binary was not built with `--features metal`.
 
 Apply is **best-effort** by default. A leftover model op is reported
