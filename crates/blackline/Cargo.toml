@@ -35,7 +35,7 @@ path = "src/bin/bl.rs"
 default = []
 # kalosm-sample is a direct dep because the Parse/Schema derive macros
 # expand to `kalosm_sample::…` in this crate. A transitive dep is not enough.
-kalosm = ["dep:kalosm", "dep:kalosm-common", "dep:kalosm-sample"]
+kalosm = ["dep:kalosm", "dep:kalosm-common", "dep:kalosm-sample", "dep:llm-samplers"]
 metal = ["kalosm", "kalosm/metal"]
 cuda = ["kalosm", "kalosm/cuda"]
 
@@ -52,6 +52,7 @@ tokio = { version = "1", features = ["rt-multi-thread", "macros"] }
 kalosm = { version = "0.4", default-features = false, features = ["language", "llama"], optional = true }
 kalosm-common = { version = "0.4", optional = true }
 kalosm-sample = { version = "0.4", optional = true }
+llm-samplers = { version = "=0.0.7", optional = true }
 
 [dev-dependencies]
 assert_cmd = { workspace = true }

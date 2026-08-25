@@ -192,7 +192,7 @@ blackline ai --clear-cache
 ```
 
 The model emits blackline ops; this CLI applies them. Default model is
-quantized Phi-3.5 mini (`--model` overrides). `cargo install blackline`
+quantized Phi-3 mini 4k (`--model` overrides). `cargo install blackline`
 stays lean; rebuild with `--features kalosm` (plus `metal` or `cuda`)
 so the model runtime is present. The model is one-shot: loaded, used
 for one plan, dropped before the write. `bl ai --clear-cache` deletes

@@ -665,7 +665,7 @@ fn ai_help_is_on_the_main_cli() {
     bl().args(["ai", "--help"])
         .assert()
         .success()
-        .stdout(predicate::str::contains("phi-3.5"))
+        .stdout(predicate::str::contains("phi-3"))
         .stdout(predicate::str::contains("--model"))
         .stdout(predicate::str::contains("--author"))
         .stdout(predicate::str::contains("--dry-run"))

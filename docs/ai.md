@@ -32,7 +32,7 @@ bl ai FILE INSTRUCTION
     -o, --output PATH
         --in-place
         --author NAME
-        --model NAME          phi-3.5 (default) | phi-3 | llama3.2-1b |
+        --model NAME          phi-3 (default) | phi-3.5 | llama3.2-1b |
                               llama3.2-3b | llama3.1-8b | qwen2.5-1.5b |
                               qwen2.5-3b | qwen2.5-7b | tinyllama |
                               ./path.gguf
@@ -51,10 +51,15 @@ bl ai FILE INSTRUCTION
 
 ## Default model
 
-**Phi-3.5 mini 4k instruct**, quantized, via Kalosm
-(`LlamaSource::phi_3_5_mini_4k_instruct`). Small enough for a 16 GB
-MacBook, trained for instruction following, which is what constrained
-generation needs. `--model` overrides the preset or points at a GGUF.
+**Phi-3.1 mini 4k instruct**, quantized, via Kalosm
+(`LlamaSource::phi_3_1_mini_4k_instruct`). The GGUF is actually 4k
+context, which fits a 16 GB machine. Kalosm's older
+`phi_3_mini_4k_instruct` pin 404s; `phi_3_5_mini_4k_instruct` points at
+bartowski's Phi-3.5 Q4, whose metadata is **128k** — Metal then sizes
+RoPE / KV from that and can take tens of GB. That preset stays
+available as `--model phi-3.5`. `--model` also accepts a `.gguf` path.
+A local GGUF that omits a tokenizer looks for `tokenizer.json` next to
+the weights.
 
 First run downloads the GGUF into the Kalosm cache. Later runs are local.
 

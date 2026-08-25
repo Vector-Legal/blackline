@@ -348,6 +348,7 @@ dependencies = [
  "kalosm",
  "kalosm-common",
  "kalosm-sample",
+ "llm-samplers",
  "predicates",
  "serde",
  "serde_json",

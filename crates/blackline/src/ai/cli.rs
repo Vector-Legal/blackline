@@ -17,13 +17,13 @@ pub const ABOUT: &str = "Local AI that drives blackline: a prompt becomes native
 /// Longer help shown after the flag list.
 pub const AFTER_HELP: &str = "The model never writes OOXML. It emits a small op list; blackline applies it.\n\
         DOCX ops become Word tracked changes (pass --author). XLSX and PPTX are silent edits.\n\n\
-        Default model is quantized Phi-3.5 mini (Kalosm). Override with --model.\n\
+        Default model is quantized Phi-3 mini 4k (Kalosm). Override with --model.\n\
         First run downloads the GGUF into the Kalosm cache. The model is a\n\
         one-shot handle: dropping it closes Kalosm's worker thread, which then\n\
         frees RAM / Metal / CUDA. `bl ai --clear-cache` deletes the GGUFs.\n\n\
         Examples:\n  \
         bl ai contract.docx \"change thirty days to sixty days\" -o out.docx --author \"Jane Doe\"\n  \
-        bl ai model.xlsx \"set B2 to 42\" --in-place --model llama3.2-3b\n  \
+        bl ai model.xlsx \"set B2 to 42\" --in-place --model llama3.2-1b\n  \
         bl ai deck.pptx \"set the title to Q3\" -o out.pptx --model ./phi.gguf\n  \
         bl ai contract.docx \"flag the indemnity clause\" --dry-run --json --author Jane\n  \
         bl ai --clear-cache";
@@ -46,7 +46,7 @@ pub struct AiArgs {
     /// Author for tracked changes (or BLACKLINE_AUTHOR)
     #[arg(long)]
     pub author: Option<String>,
-    /// Model preset or a .gguf path (default: phi-3.5)
+    /// Model preset or a .gguf path (default: phi-3)
     #[arg(long, default_value = DEFAULT_MODEL)]
     pub model: String,
     /// Don't write

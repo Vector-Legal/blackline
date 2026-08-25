@@ -4,16 +4,18 @@ use std::path::{Path, PathBuf};
 
 use super::error::AiError;
 
-/// Default: Kalosm's quantized Phi-3.5 mini (reasoning, fits a 16 GB MacBook).
-pub const DEFAULT_MODEL: &str = "phi-3.5";
+/// Default: Kalosm's quantized Phi-3 mini 4k. Phi-3.5's GGUF is 128k
+/// context and Kalosm sizes RoPE / KV from that metadata — tens of GB
+/// on Metal, then NaN logits in the sampler.
+pub const DEFAULT_MODEL: &str = "phi-3";
 
 /// A named preset or a local GGUF file.
 #[derive(Debug, Clone, PartialEq, Eq, Default)]
 pub enum ModelId {
-    /// `LlamaSource::phi_3_5_mini_4k_instruct` (default).
-    #[default]
+    /// `LlamaSource::phi_3_5_mini_4k_instruct`. The GGUF is 128k context.
     Phi35,
-    /// `LlamaSource::phi_3_mini_4k_instruct`.
+    /// `LlamaSource::phi_3_1_mini_4k_instruct` (default). Actually 4k.
+    #[default]
     Phi3,
     /// Llama 3.2 1B Instruct — smallest preset.
     Llama32_1b,
@@ -48,8 +50,8 @@ impl ModelId {
             return Ok(Self::Gguf(path.to_path_buf()));
         }
         Ok(match t {
-            "phi-3.5" | "phi3.5" | "default" => Self::Phi35,
-            "phi-3" | "phi3" => Self::Phi3,
+            "phi-3.5" | "phi3.5" => Self::Phi35,
+            "phi-3" | "phi3" | "default" => Self::Phi3,
             "llama3.2-1b" | "llama-3.2-1b" => Self::Llama32_1b,
             "llama3.2-3b" | "llama-3.2-3b" => Self::Llama32_3b,
             "llama3.1-8b" | "llama-3.1-8b" => Self::Llama31_8b,
@@ -111,7 +113,9 @@ pub async fn load(id: &ModelId, verbose: bool) -> Result<KalosmCompleter, AiErro
 
     let source = match id {
         ModelId::Phi35 => LlamaSource::phi_3_5_mini_4k_instruct(),
-        ModelId::Phi3 => LlamaSource::phi_3_mini_4k_instruct(),
+        // Kalosm's `phi_3_mini_4k_instruct` pins a Hugging Face revision that
+        // 404s. `phi_3_1_mini_4k_instruct` is the same 4k Q4 on `main`.
+        ModelId::Phi3 => LlamaSource::phi_3_1_mini_4k_instruct(),
         ModelId::Llama32_1b => LlamaSource::llama_3_2_1b_chat(),
         ModelId::Llama32_3b => LlamaSource::llama_3_2_3b_chat(),
         ModelId::Llama31_8b => LlamaSource::llama_3_1_8b_chat(),
@@ -119,10 +123,27 @@ pub async fn load(id: &ModelId, verbose: bool) -> Result<KalosmCompleter, AiErro
         ModelId::Qwen25_3b => LlamaSource::qwen_2_5_3b_instruct(),
         ModelId::Qwen25_7b => LlamaSource::qwen_2_5_7b_instruct(),
         ModelId::TinyLlama => LlamaSource::tiny_llama_1_1b_chat(),
-        ModelId::Gguf(path) => LlamaSource::new(FileSource::local(path.clone())),
+        ModelId::Gguf(path) => {
+            let mut source = LlamaSource::new(FileSource::local(path.clone()));
+            // Hugging Face GGUFs often omit the tokenizer. Pair a sibling
+            // `tokenizer.json` when the user places one next to the weights.
+            if let Some(parent) = path.parent() {
+                let tokenizer = parent.join("tokenizer.json");
+                if tokenizer.is_file() {
+                    source = source.with_tokenizer(FileSource::local(tokenizer));
+                }
+            }
+            source
+        }
     };
     let source = source.with_cache(Cache::new(super::cache::cache_dir()?));
 
+    if matches!(id, ModelId::Phi35) {
+        eprintln!(
+            "warning: phi-3.5 GGUF is 128k context; Kalosm will size caches from that. \
+             Expect high RAM on Metal. Prefer --model phi-3 (the default)."
+        );
+    }
     if verbose {
         eprintln!(
             "loading model {}  cache={}",
@@ -153,6 +174,7 @@ impl super::plan::Completer for KalosmCompleter {
     ) -> Result<super::plan::Plan, AiError> {
         use super::plan::{system_prompt, user_prompt, Plan};
         use kalosm::language::{ChatModelExt, Parse};
+        use llm_samplers::prelude::SampleGreedy;
         use std::sync::Arc;
 
         let task = self
@@ -160,7 +182,27 @@ impl super::plan::Completer for KalosmCompleter {
             .task(system_prompt(view.format))
             .with_constraints(Arc::new(Plan::new_parser()));
         let user = user_prompt(view, instruction);
-        task(&user).await.map_err(|e| AiError::Model(e.to_string()))
+        // Kalosm's default sampler is Mirostat2, which uses WeightedIndex and
+        // dies with "A weight is invalid in distribution" on NaN logits —
+        // common on Metal with the 128k Phi-3.5 GGUF. Greedy skips that path
+        // and ignores NaNs.
+        task.run(&user)
+            .with_sampler(SampleGreedy::new())
+            .await
+            .map_err(|e| AiError::Model(map_model_error(e.to_string())))
+    }
+}
+
+#[cfg(feature = "kalosm")]
+fn map_model_error(msg: String) -> String {
+    if msg.contains("weight is invalid") || msg.contains("Sampler error") {
+        format!(
+            "{msg}. The default sampler hit invalid logits (often Metal + \
+             the 128k-context phi-3.5 GGUF). Retry with --model phi-3 or \
+             --model llama3.2-1b."
+        )
+    } else {
+        msg
     }
 }
 
@@ -169,9 +211,10 @@ mod tests {
     use super::ModelId;
 
     #[test]
-    fn default_is_phi35() {
+    fn default_is_phi3() {
+        assert_eq!(ModelId::parse("phi-3").unwrap(), ModelId::Phi3);
+        assert_eq!(ModelId::parse("default").unwrap(), ModelId::Phi3);
         assert_eq!(ModelId::parse("phi-3.5").unwrap(), ModelId::Phi35);
-        assert_eq!(ModelId::parse("default").unwrap(), ModelId::Phi35);
     }
 
     #[test]
