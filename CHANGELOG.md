@@ -8,6 +8,8 @@ Versioning follows [SemVer](https://semver.org) as described in
 
 ## [Unreleased]
 
+## [0.4.0] — 2026-08-25
+
 ### Added
 
 - `bl ai FILE INSTRUCTION`: a local AI frontend on the main CLI that
@@ -135,7 +137,8 @@ Rewrite around OPC + XML primitives. The XML in the package is the document.
 - Non-load-bearing dependencies (`similar`, `strsim`, `walkdir`, `rand`,
   `regex`, `chrono`, `base64`).
 
-[Unreleased]: https://github.com/Vector-Legal/blackline/compare/v0.3.2...HEAD
+[Unreleased]: https://github.com/Vector-Legal/blackline/compare/v0.4.0...HEAD
+[0.4.0]: https://github.com/Vector-Legal/blackline/compare/v0.3.2...v0.4.0
 [0.3.2]: https://github.com/Vector-Legal/blackline/compare/v0.3.1...v0.3.2
 [0.3.1]: https://github.com/Vector-Legal/blackline/compare/v0.3.0...v0.3.1
 [0.3.0]: https://github.com/Vector-Legal/blackline/releases/tag/v0.3.0
