@@ -28,9 +28,10 @@ Versioning follows [SemVer](https://semver.org) as described in
   match) becomes a `replace` when a same-length phrase exists on that
   line or a neighbor (`thirty days` → `sixty days`, including a
   prefix of a mashed insert). A short leftover phrase with no swap
-  is dropped instead of glued onto the previous clause. A real
-  sentence still inserts at the end of the paragraph, so one bad op
-  no longer aborts the batch.
+  is dropped instead of glued onto the previous clause. Inserts do
+  not wrap back to an earlier article that another op already
+  changed. A real sentence still inserts at the end of the
+  paragraph, so one bad op no longer aborts the batch.
   Prompt lines are
   abbreviated without `…`. Ops use a short `old` and the real
   paragraph index. `--from` / `--to` remains an explicit override.

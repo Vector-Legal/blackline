@@ -142,7 +142,12 @@ fn apply_docx(
     if opts.dry_run {
         builder = builder.dry_run();
     }
-    let outcome = builder.apply().map_err(|e| AiError::Apply(e.to_string()))?;
+    let outcome = builder.apply().map_err(|e| {
+        AiError::Apply(format!(
+            "{e}; snapped ops: {}",
+            serde_json::to_string(plan).unwrap_or_else(|_| "{}".into())
+        ))
+    })?;
     let report = map_track(&outcome.report);
     if let (Some(path), Some(edited)) = (output, outcome.document) {
         atomic_save(path, |p| {

@@ -132,7 +132,7 @@ fn snap_insert(
     claimed: &mut BTreeSet<(u32, String)>,
 ) -> Option<Op> {
     let text = strip_prompt_junk(&text);
-    if let Some((idx, old, new)) = insert_as_replace(lines, index, &text) {
+    if let Some((idx, old, new)) = insert_as_replace(lines, index, &text, claimed) {
         let key = (idx, old.to_lowercase());
         if !claimed.insert(key) {
             return None;
@@ -157,7 +157,12 @@ fn snap_insert(
     })
 }
 
-fn insert_as_replace(lines: &[String], index: u32, text: &str) -> Option<(u32, String, String)> {
+fn insert_as_replace(
+    lines: &[String],
+    index: u32,
+    text: &str,
+    claimed: &BTreeSet<(u32, String)>,
+) -> Option<(u32, String, String)> {
     let words: Vec<&str> = text.split_whitespace().collect();
     if words.len() < 2 {
         return None;
@@ -165,28 +170,40 @@ fn insert_as_replace(lines: &[String], index: u32, text: &str) -> Option<(u32, S
     for n in (2..=words.len()).rev() {
         let prefix = words[..n].join(" ");
         let last = words[n - 1];
-        if let Some((idx, old)) = find_swap_ngram(lines, index, n, last, &prefix) {
+        if let Some((idx, old)) = find_swap_ngram(lines, index, n, last, &prefix, claimed) {
             return Some((idx, old, prefix));
         }
     }
     None
 }
 
+fn index_claimed(claimed: &BTreeSet<(u32, String)>, idx: u32) -> bool {
+    claimed.iter().any(|(i, _)| *i == idx)
+}
+
+/// Target line, later lines, then the previous line. Do not wrap to
+/// article 1 — that retargets a clause another op already changed.
 fn find_swap_ngram(
     lines: &[String],
     index: u32,
     n: usize,
     last: &str,
     new_phrase: &str,
+    claimed: &BTreeSet<(u32, String)>,
 ) -> Option<(u32, String)> {
     let start = usize::try_from(index.saturating_sub(1)).unwrap_or(0);
-    let order = (start..lines.len()).chain(0..start);
-    for i in order {
-        let Some(old) = ngram_sharing_last(line_body(&lines[i]), n, last, new_phrase) else {
-            continue;
-        };
+    let prev = start.checked_sub(1).into_iter();
+    for i in std::iter::once(start)
+        .chain(start.saturating_add(1)..lines.len())
+        .chain(prev)
+    {
         let idx = u32::try_from(i.saturating_add(1)).ok()?;
-        return Some((idx, old));
+        if index_claimed(claimed, idx) {
+            continue;
+        }
+        if let Some(old) = ngram_sharing_last(line_body(&lines[i]), n, last, new_phrase) {
+            return Some((idx, old));
+        }
     }
     None
 }
@@ -536,6 +553,38 @@ mod tests {
         assert_eq!(
             replace_triples(&plan),
             vec![(2, "thirty days notice".into(), "sixty days notice".into())]
+        );
+    }
+
+    #[test]
+    fn insert_does_not_wrap_onto_a_claimed_early_clause() {
+        let lines = vec![
+            "Either party may terminate after thirty days notice.".into(),
+            "Fees are due within thirty days of invoice.".into(),
+            "Limitation of liability shall not exceed fees paid.".into(),
+        ];
+        let mut plan = Plan {
+            ops: vec![
+                Op::Replace {
+                    index: 1,
+                    old: "thirty".into(),
+                    new: "sixty".into(),
+                },
+                Op::Insert {
+                    index: 3,
+                    position: Position::After,
+                    text: "sixty days notice.".into(),
+                },
+            ],
+        };
+        snap_plan(&mut plan, &lines);
+        let triples = replace_triples(&plan);
+        assert_eq!(triples[0], (1, "thirty".into(), "sixty".into()));
+        assert!(
+            !triples
+                .iter()
+                .any(|(i, old, _)| *i == 1 && old.contains("notice")),
+            "wrapped onto the already-claimed first clause: {triples:?}"
         );
     }
 
