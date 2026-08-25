@@ -26,7 +26,9 @@ Versioning follows [SemVer](https://semver.org) as described in
   logits) even for TinyLlama; forcing CPU then ran forever because
   `GenerationParameters` defaults to `max_length = u32::MAX`. Generation
   is now capped at 256 new tokens. Context allocation is capped at 4k
-  so a 128k GGUF does not size a 128k KV cache.
+  so a 128k GGUF does not size a 128k KV cache. `llama-cpp-2` and
+  `llama-cpp-sys-2` are pinned to the same 0.1.154 so
+  `cargo install --git` cannot pair an old wrapper with a newer C API.
 
 ## [0.4.1] — 2026-08-25
 

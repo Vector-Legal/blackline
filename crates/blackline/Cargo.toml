@@ -39,7 +39,7 @@ kalosm = ["dep:kalosm", "dep:kalosm-common", "dep:kalosm-sample", "dep:llm-sampl
 # Apple Silicon: llama.cpp Metal (all layers on the GPU). Kalosm is only
 # used to download the GGUF. Candle Metal is intentionally not enabled —
 # it yields NaN logits (`No token sampled`) even for TinyLlama 2k.
-metal = ["kalosm", "dep:llama-cpp-2"]
+metal = ["kalosm", "dep:llama-cpp-2", "dep:llama-cpp-sys-2"]
 cuda = ["kalosm", "kalosm/cuda"]
 
 [dependencies]
@@ -58,10 +58,15 @@ kalosm-sample = { version = "0.4", optional = true }
 llm-samplers = { version = "=0.0.7", optional = true }
 # Optional on every target so `cargo deny --all-features` can license-check
 # it. llama.cpp's Metal backend is added only on macOS.
-llama-cpp-2 = { version = "=0.1.130", optional = true, default-features = false }
+# Pin the wrapper and the sys crate to the *same* version. `cargo install
+# --git` ignores Cargo.lock; 0.1.130 + a newer sys crate fails to compile
+# (`llama_set_adapter_lora` / `use_mmap` were renamed upstream).
+llama-cpp-2 = { version = "=0.1.154", optional = true, default-features = false }
+llama-cpp-sys-2 = { version = "=0.1.154", optional = true, default-features = false }
 
 [target.'cfg(target_os = "macos")'.dependencies]
-llama-cpp-2 = { version = "=0.1.130", optional = true, default-features = false, features = ["metal"] }
+llama-cpp-2 = { version = "=0.1.154", optional = true, default-features = false, features = ["metal"] }
+llama-cpp-sys-2 = { version = "=0.1.154", optional = true, default-features = false, features = ["metal"] }
 
 [dev-dependencies]
 assert_cmd = { workspace = true }
