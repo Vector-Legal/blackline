@@ -26,7 +26,11 @@ pub(crate) fn snap_plan(plan: &mut Plan, lines: &[String]) {
                 index,
                 position,
                 text,
-            } => out.push(snap_insert(lines, index, position, text)),
+            } => {
+                if let Some(op) = snap_insert(lines, index, position, text, &mut claimed) {
+                    out.push(op);
+                }
+            }
             other => out.push(other),
         }
     }
@@ -116,26 +120,41 @@ fn split_mashed(s: &str) -> Vec<String> {
 /// Phi-3 often emits `insert` after a line instead of `replace`. Track
 /// `before`/`after` then dies (`needs match`) and strict apply writes nothing.
 /// A same-length n-gram that shares the last word becomes a replace
-/// (`thirty days` → `sixty days`). Otherwise the insert is remapped to
-/// `end` of the paragraph so it can apply.
-fn snap_insert(lines: &[String], index: u32, position: Position, text: String) -> Op {
+/// (`thirty days` → `sixty days`), including a prefix of a mashed insert
+/// (`sixty days of invoice date`) and a hit on a neighbor line. A short
+/// leftover phrase with no swap is dropped so it does not glue onto the
+/// previous clause. A real sentence still inserts at `end`.
+fn snap_insert(
+    lines: &[String],
+    index: u32,
+    position: Position,
+    text: String,
+    claimed: &mut BTreeSet<(u32, String)>,
+) -> Option<Op> {
     let text = strip_prompt_junk(&text);
     if let Some((idx, old, new)) = insert_as_replace(lines, index, &text) {
-        return Op::Replace {
+        let key = (idx, old.to_lowercase());
+        if !claimed.insert(key) {
+            return None;
+        }
+        return Some(Op::Replace {
             index: idx,
             old,
             new,
-        };
+        });
+    }
+    if is_short_leftover_phrase(&text) {
+        return None;
     }
     let position = match position {
         Position::Before | Position::After => Position::End,
         other => other,
     };
-    Op::Insert {
+    Some(Op::Insert {
         index,
         position,
         text,
-    }
+    })
 }
 
 fn insert_as_replace(lines: &[String], index: u32, text: &str) -> Option<(u32, String, String)> {
@@ -143,22 +162,67 @@ fn insert_as_replace(lines: &[String], index: u32, text: &str) -> Option<(u32, S
     if words.len() < 2 {
         return None;
     }
-    let last = *words.last()?;
-    let i = usize::try_from(index).ok()?.checked_sub(1)?;
-    let body = line_body(lines.get(i)?);
-    let line_words: Vec<&str> = body.split_whitespace().collect();
-    let n = words.len();
-    for window in line_words.windows(n) {
-        if !window.last()?.eq_ignore_ascii_case(last) {
-            continue;
+    for n in (2..=words.len()).rev() {
+        let prefix = words[..n].join(" ");
+        let last = words[n - 1];
+        if let Some((idx, old)) = find_swap_ngram(lines, index, n, last, &prefix) {
+            return Some((idx, old, prefix));
         }
-        let old = window.join(" ");
-        if old.eq_ignore_ascii_case(text) {
-            continue;
-        }
-        return Some((index, old, text.to_string()));
     }
     None
+}
+
+fn find_swap_ngram(
+    lines: &[String],
+    index: u32,
+    n: usize,
+    last: &str,
+    new_phrase: &str,
+) -> Option<(u32, String)> {
+    let start = usize::try_from(index.saturating_sub(1)).unwrap_or(0);
+    let order = (start..lines.len()).chain(0..start);
+    for i in order {
+        let Some(old) = ngram_sharing_last(line_body(&lines[i]), n, last, new_phrase) else {
+            continue;
+        };
+        let idx = u32::try_from(i.saturating_add(1)).ok()?;
+        return Some((idx, old));
+    }
+    None
+}
+
+fn ngram_sharing_last(body: &str, n: usize, last: &str, new_phrase: &str) -> Option<String> {
+    let line_words: Vec<&str> = body.split_whitespace().collect();
+    let last_key = word_key(last);
+    for window in line_words.windows(n) {
+        if word_key(window.last()?) != last_key {
+            continue;
+        }
+        let old = window
+            .join(" ")
+            .trim_end_matches(|c: char| !c.is_alphanumeric())
+            .to_string();
+        if word_key(&old) == word_key(new_phrase) {
+            continue;
+        }
+        return Some(old);
+    }
+    None
+}
+
+fn word_key(s: &str) -> String {
+    s.chars()
+        .filter(|c| c.is_alphanumeric() || c.is_whitespace())
+        .flat_map(char::to_lowercase)
+        .collect()
+}
+
+fn is_short_leftover_phrase(text: &str) -> bool {
+    let words = text.split_whitespace().count();
+    if words == 0 || words > 6 {
+        return false;
+    }
+    !text.contains(['.', '?', '!'])
 }
 
 fn snap_replace(
@@ -436,5 +500,56 @@ mod tests {
             }] => assert_eq!(text, "See Exhibit A."),
             other => panic!("expected insert at end, got {other:?}"),
         }
+    }
+
+    #[test]
+    fn mashed_insert_uses_a_prefix_swap() {
+        let lines = vec!["Either party may terminate after thirty days notice.".into()];
+        let mut plan = Plan {
+            ops: vec![Op::Insert {
+                index: 1,
+                position: Position::After,
+                text: "sixty days of invoice date".into(),
+            }],
+        };
+        snap_plan(&mut plan, &lines);
+        assert_eq!(
+            replace_triples(&plan),
+            vec![(1, "thirty days".into(), "sixty days".into())]
+        );
+    }
+
+    #[test]
+    fn leftover_insert_on_a_neighbor_swaps_the_next_line() {
+        let lines = vec![
+            "Provider shall implement commercially reasonable security measures.".into(),
+            "Either party may terminate after thirty days notice.".into(),
+        ];
+        let mut plan = Plan {
+            ops: vec![Op::Insert {
+                index: 1,
+                position: Position::After,
+                text: "sixty days notice".into(),
+            }],
+        };
+        snap_plan(&mut plan, &lines);
+        assert_eq!(
+            replace_triples(&plan),
+            vec![(2, "thirty days notice".into(), "sixty days notice".into())]
+        );
+    }
+
+    #[test]
+    fn short_leftover_insert_with_no_swap_is_dropped() {
+        let lines = vec!["Limitation of liability shall not exceed fees paid.".into()];
+        let mut plan = Plan {
+            ops: vec![Op::Insert {
+                index: 1,
+                position: Position::After,
+                text: "sixty days notice".into(),
+            }],
+        };
+        snap_plan(&mut plan, &lines);
+        assert!(plan.ops.is_empty(), "{:?}", plan.ops);
     }
 }

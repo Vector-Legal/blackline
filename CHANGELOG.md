@@ -25,9 +25,12 @@ Versioning follows [SemVer](https://semver.org) as described in
   clauses is still a search hit; only leftover single tokens
   (`the`, `shall`) are treated as too common.
   An `insert` with `before`/`after` (Phi-3's default, and it has no
-  match) becomes a `replace` when the line already has a same-length
-  phrase (`thirty days` → `sixty days`), otherwise an insert at the
-  end of the paragraph, so one bad op no longer aborts the batch.
+  match) becomes a `replace` when a same-length phrase exists on that
+  line or a neighbor (`thirty days` → `sixty days`, including a
+  prefix of a mashed insert). A short leftover phrase with no swap
+  is dropped instead of glued onto the previous clause. A real
+  sentence still inserts at the end of the paragraph, so one bad op
+  no longer aborts the batch.
   Prompt lines are
   abbreviated without `…`. Ops use a short `old` and the real
   paragraph index. `--from` / `--to` remains an explicit override.
