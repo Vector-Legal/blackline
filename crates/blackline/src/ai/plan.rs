@@ -217,7 +217,8 @@ pub fn system_prompt(format: Format) -> &'static str {
             "You edit a Word document by emitting operations against the numbered view. \
              Each line is `INDEX| text`. Put INDEX in `index` — it is the number before |, \
              not 1..N of this window. Copy a short `old`/`anchor` (a few words from the \
-             visible text). Never paste a whole paragraph and never copy an ellipsis (…). \
+             visible text). Never paste a whole paragraph, never copy an ellipsis (…), \
+             and never join several INDEX lines into one `old`. \
              For capitalization, replace only the first word. Prefer replace. \
              DOCX ops become Word tracked changes. Empty ops list if nothing must change."
         }
@@ -242,7 +243,8 @@ pub fn user_prompt(view: &super::view::DocumentView, instruction: &str) -> Strin
 /// Extra line when the model is not token-constrained (Metal).
 pub fn json_output_instruction() -> &'static str {
     " Reply with one JSON object {\"ops\":[...]} and nothing else. \
-     index is the number before | on the line. old/new are a few words, not the whole line. \
+     index is the number before | on the line. old/new are a few words from that one line. \
+     Do not join lines with |. \
      Example: {\"ops\":[{\"op\":\"replace\",\"index\":21,\"old\":\"Customer\",\"new\":\"CUSTOMER\"}]} \
      or {\"ops\":[]}."
 }

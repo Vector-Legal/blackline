@@ -17,7 +17,9 @@ Versioning follows [SemVer](https://semver.org) as described in
   in chunks of at most 12 paragraphs so the plan JSON can finish.
   Truncated JSON keeps complete ops. Before apply, `old` is snapped
   to a span that exists in the paragraph (Phi-3 otherwise concatenates
-  several `N|` lines and copies a prompt ellipsis). Prompt lines are
+  several `N|` lines and copies a prompt ellipsis). A mashed
+  `Customer: | Contact:` replace expands to one op per field.
+  Prompt lines are
   abbreviated without `…`. Ops use a short `old` and the real
   paragraph index. `--from` / `--to` remains an explicit override.
 
