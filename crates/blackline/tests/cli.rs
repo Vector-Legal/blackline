@@ -668,7 +668,8 @@ fn ai_help_is_on_the_main_cli() {
         .stdout(predicate::str::contains("phi-3.5"))
         .stdout(predicate::str::contains("--model"))
         .stdout(predicate::str::contains("--author"))
-        .stdout(predicate::str::contains("--dry-run"));
+        .stdout(predicate::str::contains("--dry-run"))
+        .stdout(predicate::str::contains("--clear-cache"));
 }
 
 #[test]
@@ -734,6 +735,40 @@ fn ai_missing_output_is_usage() {
         .failure()
         .code(2)
         .stderr(predicate::str::contains("-o/--output"));
+}
+
+#[test]
+fn ai_clear_cache_deletes_ggufs() {
+    let dir = TempDir::new().unwrap();
+    let cache = dir.path().join("kalosm").join("cache");
+    std::fs::create_dir_all(&cache).unwrap();
+    let gguf = cache.join("phi.gguf");
+    std::fs::write(&gguf, vec![0_u8; 4096]).unwrap();
+
+    bl().env("BLACKLINE_KALOSM_CACHE", &cache)
+        .args(["ai", "--clear-cache"])
+        .assert()
+        .success()
+        .stderr(predicate::str::contains("cleared"));
+    assert!(!gguf.exists());
+    assert!(!cache.exists());
+
+    bl().env("BLACKLINE_KALOSM_CACHE", &cache)
+        .args(["ai", "--clear-cache", "--json"])
+        .assert()
+        .success()
+        .stdout(predicate::str::contains("\"existed\": false"));
+}
+
+#[test]
+fn ai_clear_cache_refuses_a_file_without_instruction() {
+    let dir = fixtures();
+    let file = path(&dir, "simple.docx");
+    bl().args(["ai", &file, "--clear-cache"])
+        .assert()
+        .failure()
+        .code(2)
+        .stderr(predicate::str::contains("FILE INSTRUCTION"));
 }
 
 #[test]

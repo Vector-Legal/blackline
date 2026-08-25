@@ -44,6 +44,7 @@ bl ai FILE INSTRUCTION
         --from N --to N       window the numbered view
         --sheet NAME          XLSX
         --verbose
+        --clear-cache         delete downloaded GGUFs
 ```
 
 `INSTRUCTION` may be `@file` or `-` (stdin).
@@ -62,14 +63,21 @@ First run downloads the GGUF into the Kalosm cache. Later runs are local.
 `bl ai` is one-shot. There is no resident daemon and no session that
 outlives the command.
 
-1. Load the model into RAM (and Metal / CUDA if those features are on).
-2. Constrained-generate one `Plan`.
-3. **Drop the model** — weights, KV cache, and accelerator buffers go
-   out of scope before blackline writes the package.
-4. Process exit releases anything the drop did not.
+Kalosm's `Llama` is a **channel handle**, not the weights themselves.
+The quantized tensors (DRAM, and Metal / CUDA buffers when those
+features are on) live on a worker thread. Dropping the last handle
+closes the channel; the worker exits and Rust `Drop`s the tensors.
+That happens after the plan is parsed, before the package is written.
+Process exit is the hard guarantee if anything is still unwinding.
 
-The only leftover is the **GGUF on disk**. Kalosm's default cache is
-`DATA_DIR/kalosm/cache`:
+The GGUF on disk is separate. Clear it without leaving Kalosm:
+
+```
+bl ai --clear-cache
+```
+
+That deletes `DATA_DIR/kalosm/cache` (or `$BLACKLINE_KALOSM_CACHE` if
+set). The next `bl ai FILE INSTRUCTION` downloads again.
 
 | OS | Typical path |
 |----|----------------|
@@ -77,8 +85,7 @@ The only leftover is the **GGUF on disk**. Kalosm's default cache is
 | Linux | `~/.local/share/kalosm/cache` |
 | Windows | `%APPDATA%\kalosm\cache` |
 
-Delete that directory to reclaim disk. The next `bl ai` downloads again.
-A `--model ./file.gguf` path is yours; blackline does not delete it.
+`--model ./file.gguf` is yours; `--clear-cache` does not delete it.
 
 ## What the model is allowed to emit
 

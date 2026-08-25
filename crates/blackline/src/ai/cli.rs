@@ -18,23 +18,25 @@ pub const ABOUT: &str = "Local AI that drives blackline: a prompt becomes native
 pub const AFTER_HELP: &str = "The model never writes OOXML. It emits a small op list; blackline applies it.\n\
         DOCX ops become Word tracked changes (pass --author). XLSX and PPTX are silent edits.\n\n\
         Default model is quantized Phi-3.5 mini (Kalosm). Override with --model.\n\
-        First run downloads the GGUF into the Kalosm cache. The model is loaded\n\
-        for this command only: weights drop before the file is written, and the\n\
-        process exit releases RAM / Metal / CUDA. Delete the Kalosm cache to\n\
-        reclaim disk.\n\n\
+        First run downloads the GGUF into the Kalosm cache. The model is a\n\
+        one-shot handle: dropping it closes Kalosm's worker thread, which then\n\
+        frees RAM / Metal / CUDA. `bl ai --clear-cache` deletes the GGUFs.\n\n\
         Examples:\n  \
         bl ai contract.docx \"change thirty days to sixty days\" -o out.docx --author \"Jane Doe\"\n  \
         bl ai model.xlsx \"set B2 to 42\" --in-place --model llama3.2-3b\n  \
         bl ai deck.pptx \"set the title to Q3\" -o out.pptx --model ./phi.gguf\n  \
-        bl ai contract.docx \"flag the indemnity clause\" --dry-run --json --author Jane";
+        bl ai contract.docx \"flag the indemnity clause\" --dry-run --json --author Jane\n  \
+        bl ai --clear-cache";
 
 /// Flags for `bl ai`.
 #[derive(Args, Debug)]
 pub struct AiArgs {
     /// DOCX / XLSX / PPTX file
-    pub file: PathBuf,
+    #[arg(required_unless_present = "clear_cache")]
+    pub file: Option<PathBuf>,
     /// Natural-language instruction. `@path` reads a file; `-` reads stdin.
-    pub instruction: String,
+    #[arg(required_unless_present = "clear_cache")]
+    pub instruction: Option<String>,
     /// Output path
     #[arg(short, long)]
     pub output: Option<PathBuf>,
@@ -74,6 +76,9 @@ pub struct AiArgs {
     /// Log model load
     #[arg(long)]
     pub verbose: bool,
+    /// Delete downloaded GGUFs from the Kalosm cache
+    #[arg(long)]
+    pub clear_cache: bool,
 }
 
 /// JSON document written by `--json`.
@@ -90,6 +95,9 @@ pub struct AiReport {
     /// Written path, if any.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub output: Option<String>,
+    /// Present when `--clear-cache` ran after the edit.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub cache: Option<super::cache::ClearCacheReport>,
 }
 
 /// Run a parsed `bl ai` argument set.
@@ -102,17 +110,27 @@ pub fn run_args(args: AiArgs) -> Result<(), AiError> {
 }
 
 async fn run_cli(cli: AiArgs) -> Result<(), AiError> {
-    let instruction = read_instruction(&cli.instruction)?;
+    match (&cli.file, &cli.instruction, cli.clear_cache) {
+        (None, None, true) => return print_clear(cli.json),
+        (Some(_), Some(_), _) => {}
+        _ => {
+            return Err(AiError::usage(
+                "pass FILE INSTRUCTION, or --clear-cache with no file".to_string(),
+            ));
+        }
+    }
+
+    let file = cli.file.as_deref().expect("file present");
+    let instruction = read_instruction(cli.instruction.as_deref().expect("instruction present"))?;
     if instruction.trim().is_empty() {
         return Err(AiError::usage("instruction is empty".to_string()));
     }
-    let output =
-        apply::resolve_output(&cli.file, cli.output.as_deref(), cli.in_place, cli.dry_run)?;
+    let output = apply::resolve_output(file, cli.output.as_deref(), cli.in_place, cli.dry_run)?;
     let granularity = parse_granularity(&cli.granularity)?;
     let author = resolve_author(cli.author.as_deref())?;
     let model_id = ModelId::parse(&cli.model)?;
 
-    let view = DocumentView::open(&cli.file, cli.from, cli.to, cli.sheet.as_deref())?;
+    let view = DocumentView::open(file, cli.from, cli.to, cli.sheet.as_deref())?;
 
     if view.format == super::format::Format::Docx && !cli.no_track && author.is_none() {
         return Err(AiError::usage(
@@ -131,7 +149,12 @@ async fn run_cli(cli: AiArgs) -> Result<(), AiError> {
         lenient: cli.lenient,
         dry_run: cli.dry_run,
     };
-    let apply_report = apply::apply(&cli.file, output.as_deref(), &plan, &opts)?;
+    let apply_report = apply::apply(file, output.as_deref(), &plan, &opts)?;
+    let cache = if cli.clear_cache {
+        Some(super::cache::clear_cache()?)
+    } else {
+        None
+    };
 
     let report = AiReport {
         format: view.format,
@@ -139,6 +162,7 @@ async fn run_cli(cli: AiArgs) -> Result<(), AiError> {
         plan,
         apply: apply_report,
         output: output.map(|p| p.display().to_string()),
+        cache,
     };
     if cli.json {
         println!(
@@ -147,6 +171,22 @@ async fn run_cli(cli: AiArgs) -> Result<(), AiError> {
         );
     } else {
         print_human(&report);
+        if let Some(cache) = &report.cache {
+            eprintln!("{}", super::cache::format_clear_report(cache));
+        }
+    }
+    Ok(())
+}
+
+fn print_clear(json: bool) -> Result<(), AiError> {
+    let report = super::cache::clear_cache()?;
+    if json {
+        println!(
+            "{}",
+            serde_json::to_string_pretty(&report).map_err(|e| AiError::Io(e.to_string()))?
+        );
+    } else {
+        eprintln!("{}", super::cache::format_clear_report(&report));
     }
     Ok(())
 }
@@ -161,9 +201,9 @@ async fn complete_with_model(
     {
         let completer = super::model::load(id, verbose).await?;
         let plan = completer.complete(view, instruction).await?;
-        // Weights, KV cache, and Metal/CUDA buffers live only in `completer`.
-        // Drop them before apply so RAM/VRAM are gone while we write the
-        // package. The GGUF stays in Kalosm's on-disk cache for the next run.
+        // Last `Llama` clone: dropping the sender closes Kalosm's worker
+        // channel. That thread then drops the quantized tensors (DRAM and
+        // Metal/CUDA). The GGUF on disk is unchanged; use `--clear-cache`.
         drop(completer);
         if verbose {
             eprintln!("unloaded model");
@@ -259,5 +299,6 @@ pub async fn run_with_completer<C: Completer>(
         plan,
         apply: apply_report,
         output: output.map(|p| p.display().to_string()),
+        cache: None,
     })
 }

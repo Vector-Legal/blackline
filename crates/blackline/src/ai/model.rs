@@ -100,13 +100,13 @@ impl ModelId {
 
 /// Load the model and wrap it as a [`super::plan::Completer`].
 ///
-/// The returned completer owns the Kalosm `Llama` (weights + accelerator
-/// buffers). Drop it after one [`super::plan::Completer::complete`] — there
-/// is no unload API and no resident process. The GGUF stays in Kalosm's
-/// on-disk cache (`DATA_DIR/kalosm/cache`).
+/// Kalosm's `Llama` is a channel handle. The quantized weights and Metal /
+/// CUDA buffers live on a worker thread. Dropping the last handle closes
+/// the channel; the worker exits and `Drop`s the tensors. There is no
+/// unload API. The GGUF file stays in [`super::cache::cache_dir`].
 #[cfg(feature = "kalosm")]
 pub async fn load(id: &ModelId, verbose: bool) -> Result<KalosmCompleter, AiError> {
-    use kalosm::language::{FileSource, Llama, LlamaSource};
+    use kalosm::language::{Cache, FileSource, Llama, LlamaSource};
 
     let source = match id {
         ModelId::Phi35 => LlamaSource::phi_3_5_mini_4k_instruct(),
@@ -120,9 +120,14 @@ pub async fn load(id: &ModelId, verbose: bool) -> Result<KalosmCompleter, AiErro
         ModelId::TinyLlama => LlamaSource::tiny_llama_1_1b_chat(),
         ModelId::Gguf(path) => LlamaSource::new(FileSource::local(path.clone())),
     };
+    let source = source.with_cache(Cache::new(super::cache::cache_dir()?));
 
     if verbose {
-        eprintln!("loading model {}", id.as_str());
+        eprintln!(
+            "loading model {}  cache={}",
+            id.as_str(),
+            super::cache::cache_dir()?.display()
+        );
     }
     let llama = Llama::builder()
         .with_source(source)

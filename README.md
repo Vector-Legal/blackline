@@ -120,6 +120,7 @@ and add `,metal` on Apple Silicon or `,cuda` on NVIDIA):
 
     bl ai contract.docx "change thirty days to sixty days" \
         -o revised.docx --author "Jane Doe"
+    bl ai --clear-cache
 ````
 
 </details>
@@ -197,6 +198,7 @@ bl fixtures ./corpus
 # Natural language — same CLI; needs `--features kalosm` to run a model
 bl ai contract.docx "change thirty days to sixty days" \
     -o revised.docx --author "Jane Doe"
+bl ai --clear-cache
 ```
 
 ### Conventions
@@ -223,14 +225,13 @@ See [docs/ai.md](docs/ai.md).
 ```bash
 bl ai contract.docx "change thirty days to sixty days" \
     -o revised.docx --author "Jane Doe"
+bl ai --clear-cache
 ```
 
-The model is loaded for that command only. After it emits the plan,
-blackline drops the weights (RAM / Metal / CUDA) and then writes the
-file. Process exit is the rest of the cleanup. The downloaded GGUF
-stays in Kalosm's cache so the next run is local; delete
-`~/Library/Application Support/kalosm/cache` (macOS) or
-`~/.local/share/kalosm/cache` (Linux) to reclaim disk.
+The model is a one-shot handle. After it emits the plan, blackline
+drops it; Kalosm's worker thread then frees DRAM / Metal / CUDA.
+The GGUF stays on disk so the next run is local. `bl ai --clear-cache`
+deletes that cache. See [docs/ai.md](docs/ai.md).
 
 ## Library
 

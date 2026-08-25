@@ -7,6 +7,7 @@
 //! [`plan::StaticCompleter`].
 
 mod apply;
+mod cache;
 mod cli;
 mod error;
 mod format;

@@ -250,9 +250,9 @@ prompt + numbered view  →  Kalosm (constrained Plan)  →  Docx::track / Xlsx:
 `Completer` is the only extra type. Tests inject a canned plan so CI
 never downloads a GGUF. Default model is quantized Phi-3.5 mini;
 `--model` overrides. PDF and Markdown stay out of scope. The Kalosm
-`Llama` is loaded for that invocation only and dropped after the plan
-is parsed; there is no resident model. The GGUF stays in Kalosm's
-cache until the user deletes it.
+`Llama` handle is dropped after the plan is parsed; Kalosm's worker
+thread then frees the tensors. There is no resident model.
+`bl ai --clear-cache` deletes the on-disk GGUFs.
 
 See [ai.md](ai.md).
 

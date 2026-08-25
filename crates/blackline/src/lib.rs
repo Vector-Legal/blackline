@@ -43,7 +43,8 @@ use clap::{Parser, Subcommand};
         blackline track comments FILE [--author NAME]\n  \
         blackline track settle FILE --accept|--reject [--author NAME] -o OUT\n\n\
         Natural language (local Kalosm model; rebuild with --features kalosm):\n  \
-        blackline ai FILE INSTRUCTION -o OUT --author NAME\n\n\
+        blackline ai FILE INSTRUCTION -o OUT --author NAME\n  \
+        blackline ai --clear-cache\n\n\
         Generate a synthetic test corpus:\n  \
         blackline fixtures DIR"
 )]
