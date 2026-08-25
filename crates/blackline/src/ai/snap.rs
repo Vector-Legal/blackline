@@ -293,17 +293,17 @@ fn all_caps_insert_as_replace(
 }
 
 fn is_all_caps_text(s: &str) -> bool {
-    let mut without_fillins = String::new();
-    let mut in_fillin = false;
+    let mut without_placeholders = String::new();
+    let mut in_brackets = false;
     for c in s.chars() {
         match c {
-            '[' => in_fillin = true,
-            ']' => in_fillin = false,
-            _ if !in_fillin => without_fillins.push(c),
+            '[' => in_brackets = true,
+            ']' => in_brackets = false,
+            _ if !in_brackets => without_placeholders.push(c),
             _ => {}
         }
     }
-    let letters: String = without_fillins
+    let letters: String = without_placeholders
         .chars()
         .filter(|c| c.is_alphabetic())
         .collect();
@@ -753,7 +753,7 @@ mod tests {
     }
 
     #[test]
-    fn all_caps_insert_ignores_fillin_brackets() {
+    fn all_caps_insert_ignores_placeholder_brackets() {
         let lines = vec!["Customer: | [Name] / Contact: | / / Address: |".into()];
         let mut plan = Plan {
             ops: vec![Op::Insert {
