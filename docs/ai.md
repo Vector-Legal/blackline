@@ -63,6 +63,12 @@ the weights.
 
 First run downloads the GGUF into the Kalosm cache. Later runs are local.
 
+On Apple Silicon (`--features metal`) Kalosm's structured decoder can
+fail with `No valid tokens were sampled` even when RAM is plentiful:
+constraint masking plus Metal NaN logits leaves nothing to sample.
+`bl ai` then asks the model for a JSON plan and parses it. The model
+still never writes OOXML.
+
 ## Lifecycle
 
 `bl ai` is one-shot. There is no resident daemon and no session that

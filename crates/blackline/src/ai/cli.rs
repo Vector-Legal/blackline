@@ -208,7 +208,7 @@ async fn complete_with_model(
         if verbose {
             eprintln!("unloaded model");
         }
-        return Ok(plan);
+        Ok(plan)
     }
     #[cfg(not(feature = "kalosm"))]
     {

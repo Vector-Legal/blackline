@@ -238,6 +238,74 @@ pub fn user_prompt(view: &super::view::DocumentView, instruction: &str) -> Strin
     format!("{}\n# Instruction\n{}", view.render(), instruction.trim())
 }
 
+/// Extra line when the model is not token-constrained (Metal).
+pub fn json_output_instruction() -> &'static str {
+    " Reply with one JSON object {\"ops\":[...]} and nothing else. \
+     Example: {\"ops\":[{\"op\":\"replace\",\"index\":1,\"old\":\"Hello\",\"new\":\"Hi\"}]} \
+     or {\"ops\":[]}."
+}
+
+/// Parse a [`Plan`] from model text. Accepts a bare object or one wrapped
+/// in prose / a markdown fence.
+pub fn parse_plan_json(text: &str) -> Result<Plan, AiError> {
+    let trimmed = text.trim();
+    if let Ok(plan) = serde_json::from_str::<Plan>(trimmed) {
+        return Ok(plan);
+    }
+    let Some(json) = extract_json_object(trimmed) else {
+        return Err(AiError::Model(format!(
+            "model did not emit a plan object. got: {}",
+            truncate_for_error(trimmed)
+        )));
+    };
+    serde_json::from_str::<Plan>(json).map_err(|e| {
+        AiError::Model(format!(
+            "model emitted JSON that is not a plan ({e}). got: {}",
+            truncate_for_error(json)
+        ))
+    })
+}
+
+fn extract_json_object(text: &str) -> Option<&str> {
+    let start = text.find('{')?;
+    let bytes = text.as_bytes();
+    let mut depth = 0i32;
+    let mut in_string = false;
+    let mut escape = false;
+    for (i, &b) in bytes.iter().enumerate().skip(start) {
+        if in_string {
+            if escape {
+                escape = false;
+            } else if b == b'\\' {
+                escape = true;
+            } else if b == b'"' {
+                in_string = false;
+            }
+            continue;
+        }
+        match b {
+            b'"' => in_string = true,
+            b'{' => depth += 1,
+            b'}' => {
+                depth -= 1;
+                if depth == 0 {
+                    return Some(&text[start..=i]);
+                }
+            }
+            _ => {}
+        }
+    }
+    None
+}
+
+fn truncate_for_error(text: &str) -> String {
+    const MAX: usize = 240;
+    if text.len() <= MAX {
+        return text.to_string();
+    }
+    format!("{}…", &text[..MAX])
+}
+
 #[cfg(test)]
 mod tests {
     use super::{system_prompt, user_prompt, Op, Plan};
@@ -271,5 +339,23 @@ mod tests {
         let user = user_prompt(&view, "change hello");
         assert!(user.contains("hello"));
         assert!(user.contains("change hello"));
+    }
+
+    #[test]
+    fn parse_plan_from_fence_and_prose() {
+        let plan = super::parse_plan_json(
+            "Sure.\n```json\n{\"ops\":[{\"op\":\"replace\",\"index\":1,\"old\":\"a\",\"new\":\"b\"}]}\n```\n",
+        )
+        .unwrap();
+        assert_eq!(plan.ops.len(), 1);
+        assert_eq!(plan.ops[0].name(), "replace");
+        let empty = super::parse_plan_json("here you go {\"ops\":[]} thanks").unwrap();
+        assert!(empty.ops.is_empty());
+    }
+
+    #[test]
+    fn parse_plan_rejects_garbage() {
+        let err = super::parse_plan_json("I cannot do that.").unwrap_err();
+        assert!(err.to_string().contains("did not emit a plan"));
     }
 }

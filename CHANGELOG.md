@@ -8,6 +8,14 @@ Versioning follows [SemVer](https://semver.org) as described in
 
 ## [Unreleased]
 
+### Fixed
+
+- `bl ai` on Metal no longer dies with `No valid tokens were sampled`.
+  Kalosm structured decoding plus Metal NaN logits left the greedy
+  sampler empty; that is a decoder issue, not a RAM limit. The Metal
+  build now generates a JSON plan and parses it. CPU still tries
+  constrained generation first and falls back to the same JSON path.
+
 ## [0.4.1] — 2026-08-25
 
 ### Fixed

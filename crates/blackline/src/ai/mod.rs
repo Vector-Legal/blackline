@@ -3,7 +3,7 @@
 #![allow(dead_code)]
 //!
 //! [`plan::Completer`] is the only extra abstraction. Production uses Kalosm
-//! constrained generation into [`plan::Plan`]. Tests inject
+//! to emit a [`plan::Plan`] (JSON, then serde). Tests inject
 //! [`plan::StaticCompleter`].
 
 mod apply;

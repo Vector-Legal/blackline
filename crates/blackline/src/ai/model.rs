@@ -172,34 +172,86 @@ impl super::plan::Completer for KalosmCompleter {
         view: &super::view::DocumentView,
         instruction: &str,
     ) -> Result<super::plan::Plan, AiError> {
-        use super::plan::{system_prompt, user_prompt, Plan};
-        use kalosm::language::{ChatModelExt, Parse};
-        use llm_samplers::prelude::SampleGreedy;
-        use std::sync::Arc;
+        use super::plan::user_prompt;
 
-        let task = self
-            .llama
-            .task(system_prompt(view.format))
-            .with_constraints(Arc::new(Plan::new_parser()));
         let user = user_prompt(view, instruction);
-        // Kalosm's default sampler is Mirostat2, which uses WeightedIndex and
-        // dies with "A weight is invalid in distribution" on NaN logits —
-        // common on Metal with the 128k Phi-3.5 GGUF. Greedy skips that path
-        // and ignores NaNs.
-        task.run(&user)
-            .with_sampler(SampleGreedy::new())
-            .await
-            .map_err(|e| AiError::Model(map_model_error(e.to_string())))
+
+        // Metal + Kalosm structured generation often returns
+        // "No valid tokens were sampled": constraint masking leaves only
+        // NaN logits, then greedy has nothing to pick. That is a decoder
+        // bug, not RAM. Generate JSON in the clear and parse it.
+        #[cfg(feature = "metal")]
+        {
+            return complete_json(&self.llama, view, &user).await;
+        }
+
+        #[cfg(not(feature = "metal"))]
+        {
+            use super::plan::{system_prompt, Plan};
+            use kalosm::language::{ChatModelExt, Parse};
+            use llm_samplers::prelude::SampleGreedy;
+            use std::sync::Arc;
+
+            let task = self
+                .llama
+                .task(system_prompt(view.format))
+                .with_constraints(Arc::new(Plan::new_parser()));
+            match task.run(&user).with_sampler(SampleGreedy::new()).await {
+                Ok(plan) => Ok(plan),
+                Err(e) => {
+                    let msg = e.to_string();
+                    if msg.contains("No valid tokens") || msg.contains("weight is invalid") {
+                        complete_json(&self.llama, view, &user).await
+                    } else {
+                        Err(AiError::Model(map_model_error(msg)))
+                    }
+                }
+            }
+        }
     }
 }
 
 #[cfg(feature = "kalosm")]
+async fn complete_json(
+    llama: &kalosm::language::Llama,
+    view: &super::view::DocumentView,
+    user: &str,
+) -> Result<super::plan::Plan, AiError> {
+    use super::plan::{json_output_instruction, parse_plan_json, system_prompt};
+    use kalosm::language::ChatModelExt;
+    use llm_samplers::prelude::SampleGreedy;
+
+    let system = format!(
+        "{}{}",
+        system_prompt(view.format),
+        json_output_instruction()
+    );
+    let text: String = llama
+        .task(system)
+        .with_example(
+            "# docx (1 lines)\n1| Hello world.\n# Instruction\nchange Hello to Hi",
+            r#"{"ops":[{"op":"replace","index":1,"old":"Hello","new":"Hi"}]}"#,
+        )
+        .run(user)
+        .with_sampler(SampleGreedy::new())
+        .await
+        .map_err(|e| AiError::Model(map_model_error(e.to_string())))?;
+    parse_plan_json(&text)
+}
+
+#[cfg(feature = "kalosm")]
 fn map_model_error(msg: String) -> String {
-    if msg.contains("weight is invalid") || msg.contains("Sampler error") {
+    if msg.contains("No valid tokens") {
         format!(
-            "{msg}. The default sampler hit invalid logits (often Metal + \
-             the 128k-context phi-3.5 GGUF). Retry with --model phi-3 or \
-             --model llama3.2-1b."
+            "{msg}. Kalosm could not pick a next token (Metal often produces \
+             NaN logits under structured decoding). This is not a RAM limit. \
+             Rebuild without --features metal to run on CPU, or pass \
+             --from/--to to window the view."
+        )
+    } else if msg.contains("weight is invalid") || msg.contains("Sampler error") {
+        format!(
+            "{msg}. The sampler hit invalid logits. Retry with --model phi-3 \
+             (the default) rather than phi-3.5."
         )
     } else {
         msg
