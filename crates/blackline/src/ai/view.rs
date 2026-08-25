@@ -98,9 +98,13 @@ impl DocumentView {
                 note = "prefix — no phrase from the instruction was found".into();
             }
         }
-        let mut views = pack_windows(format, lines, note);
+        let mut views = pack_windows(format, lines, note.clone());
         if !walk_all && views.len() > 1 {
             views.truncate(1);
+            if let Some(v) = views.first_mut() {
+                v.window = note;
+                v.truncated = false;
+            }
         }
         Ok(views)
     }
@@ -309,7 +313,7 @@ fn hit_indices(lines: &[String], needles: &[String]) -> Option<Vec<usize>> {
             .filter(|(_, line)| line_matches(line, needle))
             .map(|(i, _)| i)
             .collect();
-        if found.is_empty() || too_common(found.len(), lines.len()) {
+        if found.is_empty() || too_common(needle, found.len(), lines.len()) {
             continue;
         }
         hits.extend(found);
@@ -321,7 +325,12 @@ fn hit_indices(lines: &[String], needles: &[String]) -> Option<Vec<usize>> {
     }
 }
 
-fn too_common(hits: usize, n_lines: usize) -> bool {
+/// Leftover single tokens (`the`, `shall`) must not select the whole file.
+/// A `change thirty days to …` phrase can appear in every article; keep it.
+fn too_common(needle: &str, hits: usize, n_lines: usize) -> bool {
+    if needle.chars().any(char::is_whitespace) || needle.chars().count() >= 12 {
+        return false;
+    }
     hits > 12 || (n_lines > 8 && hits * 4 > n_lines)
 }
 
@@ -632,6 +641,27 @@ mod tests {
     fn common_words_do_not_select_the_whole_file() {
         let lines: Vec<String> = (1..=20).map(|i| format!("{i}| the party agrees")).collect();
         assert!(hit_indices(&lines, &["the".into()]).is_none());
+    }
+
+    #[test]
+    fn repeated_change_phrase_is_kept() {
+        let mut lines: Vec<String> = (1..=20)
+            .map(|i| format!("{i}| Fees are due in thirty days. Clause {i}."))
+            .collect();
+        let note = window_from_instruction(&mut lines, "change thirty days to sixty days").unwrap();
+        assert!(note.contains("instruction hits"), "{note}");
+        assert_eq!(lines.len(), 20);
+        assert_eq!(
+            hit_indices(
+                &(1..=20)
+                    .map(|i| format!("{i}| Fees are due in thirty days. Clause {i}."))
+                    .collect::<Vec<_>>(),
+                &["thirty days".into()]
+            )
+            .unwrap()
+            .len(),
+            20
+        );
     }
 
     #[test]

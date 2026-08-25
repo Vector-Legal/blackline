@@ -21,6 +21,9 @@ Versioning follows [SemVer](https://semver.org) as described in
   `Customer: | Contact:` replace expands to one op per field.
   A Word table is one view index: several replaces on that index are
   kept, and a leftover `Contact:` aimed at the next paragraph is dropped.
+  A `change thirty days to sixty days` phrase that appears in many
+  clauses is still a search hit; only leftover single tokens
+  (`the`, `shall`) are treated as too common.
   Prompt lines are
   abbreviated without `…`. Ops use a short `old` and the real
   paragraph index. `--from` / `--to` remains an explicit override.
