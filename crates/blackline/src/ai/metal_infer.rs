@@ -89,9 +89,7 @@ pub(crate) fn complete_many(
     let n_ctx = context_length.clamp(512, INFER_CONTEXT);
     let mut out = Vec::with_capacity(jobs.len());
     for (i, (system, user)) in jobs.iter().enumerate() {
-        if jobs.len() > 1 {
-            eprintln!("planning chunk {}/{}", i + 1, jobs.len());
-        }
+        super::plan::eprint_chunk_progress(i + 1, jobs.len());
         out.push(generate(&model, backend, system, user, n_ctx)?);
     }
     Ok(out)

@@ -27,6 +27,10 @@ pub const AFTER_HELP: &str = "The model never writes OOXML. It emits a small op 
         `change title to …` is the first paragraph). `every paragraph` /\n\
         `throughout the document` walks the file in chunks. `--from` / `--to`\n\
         is an optional override, same index space as `bl docx view`.\n\n\
+        Apply is best-effort by default: leftover model ops are reported and\n\
+        the rest still writes. `--strict` aborts on the first miss (same as\n\
+        `bl docx edit`). Default stderr is a few status lines; `--verbose`\n\
+        prints fetch, unload, and every apply op. `--json` is the full report.\n\n\
         Examples:\n  \
         bl ai contract.docx \"change thirty days to sixty days\" -o out.docx --author \"Jane Doe\"\n  \
         bl ai model.xlsx \"set B2 to 42\" --in-place --model llama3.2-1b\n  \
@@ -64,8 +68,11 @@ pub struct AiArgs {
     /// DOCX: edit silently instead of leaving a redline
     #[arg(long)]
     pub no_track: bool,
-    /// Best-effort apply
+    /// Abort apply on the first failed op (default is best-effort).
     #[arg(long)]
+    pub strict: bool,
+    /// Legacy alias for best-effort apply (now the default).
+    #[arg(long, hide = true)]
     pub lenient: bool,
     /// char | word | sentence
     #[arg(long, default_value = "word")]
@@ -79,8 +86,8 @@ pub struct AiArgs {
     /// XLSX sheet name or 1-based index
     #[arg(long)]
     pub sheet: Option<String>,
-    /// Log model load
-    #[arg(long)]
+    /// Extra status lines (model fetch, unload, every apply op)
+    #[arg(long, short)]
     pub verbose: bool,
     /// Delete downloaded GGUFs from the Kalosm cache
     #[arg(long)]
@@ -175,19 +182,10 @@ async fn run_cli(cli: AiArgs) -> Result<(), AiError> {
         author,
         granularity,
         no_track: cli.no_track,
-        lenient: cli.lenient,
+        lenient: !cli.strict,
         dry_run: cli.dry_run,
     };
-    let apply_report = match apply::apply(file, output.as_deref(), &plan, &opts) {
-        Ok(report) => report,
-        Err(err) => {
-            eprintln!(
-                "apply failed; planned ops: {}",
-                serde_json::to_string(&plan).unwrap_or_else(|_| "{}".into())
-            );
-            return Err(err);
-        }
-    };
+    let apply_report = apply::apply(file, output.as_deref(), &plan, &opts)?;
     let cache = if cli.clear_cache {
         Some(super::cache::clear_cache()?)
     } else {
@@ -208,7 +206,7 @@ async fn run_cli(cli: AiArgs) -> Result<(), AiError> {
             serde_json::to_string_pretty(&report).map_err(|e| AiError::Io(e.to_string()))?
         );
     } else {
-        print_human(&report);
+        print_human(&report, cli.verbose);
         if let Some(cache) = &report.cache {
             eprintln!("{}", super::cache::format_clear_report(cache));
         }
@@ -302,7 +300,7 @@ fn resolve_author(flag: Option<&str>) -> Result<Option<String>, AiError> {
     Ok(None)
 }
 
-fn print_human(report: &AiReport) {
+fn print_human(report: &AiReport, verbose: bool) {
     eprintln!(
         "{}  model={}  {} op(s)  applied={}  failed={}  {}",
         report.format,
@@ -312,8 +310,25 @@ fn print_human(report: &AiReport) {
         report.apply.failed,
         report.apply.mode
     );
-    for op in &report.apply.ops {
-        eprintln!("  [{}] {} {} — {}", op.index, op.status, op.op, op.detail);
+    if verbose {
+        for op in &report.apply.ops {
+            eprintln!("  [{}] {} {} — {}", op.index, op.status, op.op, op.detail);
+        }
+    } else if report.apply.failed > 0 {
+        let preview: Vec<&str> = report
+            .apply
+            .ops
+            .iter()
+            .filter(|op| op.status == "failed")
+            .take(3)
+            .map(|op| op.detail.as_str())
+            .collect();
+        if !preview.is_empty() {
+            eprintln!("  {} failed: {}", report.apply.failed, preview.join("; "));
+            if report.apply.failed > preview.len() {
+                eprintln!("  pass --verbose for every op");
+            }
+        }
     }
     if let Some(path) = &report.output {
         eprintln!("wrote {path}");

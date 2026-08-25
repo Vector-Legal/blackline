@@ -340,12 +340,13 @@ pub async fn load(id: &ModelId, verbose: bool) -> Result<KalosmCompleter, AiErro
 
     let cache_dir = super::cache::cache_dir()?;
     let cache = Cache::new(cache_dir.clone());
-    let _ = verbose;
 
     #[cfg(all(feature = "metal", target_os = "macos"))]
     {
         let source = gguf_file_source(id);
-        eprintln!("fetching {}  cache={}", id.as_str(), cache_dir.display());
+        if verbose {
+            eprintln!("fetching {}  cache={}", id.as_str(), cache_dir.display());
+        }
         let gguf = cache
             .get(&source, |_| {})
             .await
@@ -379,6 +380,7 @@ pub async fn load(id: &ModelId, verbose: bool) -> Result<KalosmCompleter, AiErro
     {
         use kalosm::language::Llama;
 
+        let _ = verbose;
         let source = kalosm_source(id).with_cache(cache);
         refuse_long_context(id)?;
         let ctx = context_length_hint(id);
@@ -476,9 +478,7 @@ impl KalosmCompleter {
 
             let mut plan = Plan::default();
             for (i, view) in views.iter().enumerate() {
-                if views.len() > 1 {
-                    eprintln!("planning chunk {}/{}", i + 1, views.len());
-                }
+                super::plan::eprint_chunk_progress(i + 1, views.len());
                 let user = user_prompt(view, instruction);
                 let task = self
                     .llama

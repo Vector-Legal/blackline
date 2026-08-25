@@ -247,6 +247,130 @@ async fn pptx_set_text() {
 }
 
 #[tokio::test]
+async fn leftover_replace_is_dropped_before_strict_apply() {
+    let dir = dir();
+    let input = dir.path().join("in.docx");
+    let output = dir.path().join("out.docx");
+    Docx::from_paragraphs(&["The notice period is thirty days."])
+        .unwrap()
+        .save(&input)
+        .unwrap();
+
+    let plan = Plan {
+        ops: vec![
+            Op::Replace {
+                index: 1,
+                old: "thirty".into(),
+                new: "sixty".into(),
+            },
+            Op::Replace {
+                index: 1,
+                old: "    ".into(),
+                new: "    ".into(),
+            },
+        ],
+    };
+    let report = run_with_completer(
+        &input,
+        "thirty to sixty",
+        Some(&output),
+        ApplyOptions {
+            author: Some("Jane".into()),
+            ..ApplyOptions::default()
+        },
+        &StaticCompleter::new(plan),
+    )
+    .await
+    .unwrap();
+    assert_eq!(report.apply.failed, 0, "{:?}", report.apply);
+    assert_eq!(report.apply.applied, 1);
+    assert!(output.exists());
+}
+
+#[tokio::test]
+async fn leftover_miss_does_not_abort_lenient_apply() {
+    let dir = dir();
+    let input = dir.path().join("in.docx");
+    let output = dir.path().join("out.docx");
+    Docx::from_paragraphs(&["The notice period is thirty days."])
+        .unwrap()
+        .save(&input)
+        .unwrap();
+
+    let plan = Plan {
+        ops: vec![
+            Op::Replace {
+                index: 1,
+                old: "thirty".into(),
+                new: "sixty".into(),
+            },
+            // Delete is not rewritten by snap, so a miss reaches apply.
+            Op::Delete {
+                index: 1,
+                text: "this text is not in the file".into(),
+            },
+        ],
+    };
+    let report = run_with_completer(
+        &input,
+        "thirty to sixty",
+        Some(&output),
+        ApplyOptions {
+            author: Some("Jane".into()),
+            lenient: true,
+            ..ApplyOptions::default()
+        },
+        &StaticCompleter::new(plan),
+    )
+    .await
+    .unwrap();
+    assert_eq!(report.apply.applied, 1, "{:?}", report.apply);
+    assert_eq!(report.apply.failed, 1);
+    assert_eq!(report.apply.mode, "lenient");
+    let text = Docx::open(&output).unwrap().visible_text().unwrap();
+    assert!(text.contains("sixty days"), "{text}");
+}
+
+#[tokio::test]
+async fn leftover_miss_aborts_strict_apply() {
+    let dir = dir();
+    let input = dir.path().join("in.docx");
+    let output = dir.path().join("out.docx");
+    Docx::from_paragraphs(&["The notice period is thirty days."])
+        .unwrap()
+        .save(&input)
+        .unwrap();
+
+    let plan = Plan {
+        ops: vec![
+            Op::Replace {
+                index: 1,
+                old: "thirty".into(),
+                new: "sixty".into(),
+            },
+            Op::Delete {
+                index: 1,
+                text: "this text is not in the file".into(),
+            },
+        ],
+    };
+    let err = run_with_completer(
+        &input,
+        "thirty to sixty",
+        Some(&output),
+        ApplyOptions {
+            author: Some("Jane".into()),
+            ..ApplyOptions::default()
+        },
+        &StaticCompleter::new(plan),
+    )
+    .await
+    .unwrap_err();
+    assert!(err.to_string().contains("not found"), "{err}");
+    assert!(!output.exists());
+}
+
+#[tokio::test]
 async fn wrong_op_for_format_fails() {
     let dir = dir();
     let input = dir.path().join("in.xlsx");

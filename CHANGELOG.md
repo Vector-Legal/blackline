@@ -14,40 +14,24 @@ Versioning follows [SemVer](https://semver.org) as described in
   instruction (`change thirty days to sixty days`, quoted spans,
   `change title to …` as the first paragraph) select the numbered
   view. `every paragraph` / `throughout the document` walks the file
-  in chunks of at most 12 paragraphs so the plan JSON can finish.
-  Truncated JSON keeps complete ops. Before apply, `old` is snapped
-  to a span that exists in the paragraph (Phi-3 otherwise concatenates
-  several `N|` lines and copies a prompt ellipsis). A mashed
-  `Customer: | Contact:` replace expands to one op per field.
-  A Word table is one view index: several replaces on that index are
-  kept, and a leftover `Contact:` aimed at the next paragraph is dropped.
-  A `change thirty days to sixty days` phrase that appears in many
-  clauses is still a search hit; only leftover single tokens
-  (`the`, `shall`) are treated as too common.
-  An `insert` with `before`/`after` (Phi-3's default, and it has no
-  match) becomes a `replace` when a same-length phrase exists on that
-  line or a neighbor (`thirty days` → `sixty days`, including a
-  prefix of a mashed insert). A short leftover phrase with no swap
-  is dropped instead of glued onto the previous clause. Inserts do
-  not wrap back to an earlier article that another op already
-  changed. A leftover `sixty days notice.` (trailing period,
-  lowercase) is still dropped; a real sentence (`See Exhibit A.`)
-  is not. An `of` n-gram does not rewrite unrelated `claims of`
-  text. A real sentence still inserts at the end of the paragraph,
-  so one bad op no longer aborts the batch.
-  Replace snap only walks a few neighboring lines, not the rest of
-  the file. An all-caps insert of a sentence becomes a first-word
-  replace so `all caps first` does not append a duplicate clause.
-  A replace whose `old` is only view chrome (`H1:`) is dropped so
-  one miss does not abort the rest of the batch.
-  All-caps detection ignores `[fill-in]` brackets so a table header
-  insert snaps to the first word instead of a piped `old` apply
-  cannot find.
-  A replace whose `old` is only spaces (Phi-3's empty heading
-  line) is dropped so strict apply can finish the rest.
-  Prompt lines are
-  abbreviated without `…`. Ops use a short `old` and the real
-  paragraph index. `--from` / `--to` remains an explicit override.
+  in chunks of at most 12 paragraphs. Truncated JSON keeps complete
+  ops. `--from` / `--to` remains an explicit override.
+- Before apply, `snap_plan` rewrites model ops onto text that exists
+  in the paragraph: mashed ` | ` fields become one replace each,
+  `insert` after/before becomes a same-length phrase replace when
+  one exists, all-caps inserts become a first-word replace, and
+  unsnappable leftovers (`H1:`, whitespace-only `old`, short
+  leftover phrases) are dropped.
+
+### Changed
+
+- `bl ai` apply is best-effort by default. One leftover model op no
+  longer throws away a finished plan. `--strict` restores abort-on-
+  first-miss (the library `ApplyOptions` default is still strict).
+  Default stderr is a short status: view size, one `loading model`
+  line, in-place `planning N/M`, then applied/failed. `--verbose`
+  prints cache fetch, unload, and every apply op. Apply errors no
+  longer dump the planned-ops JSON.
 
 ### Fixed
 

@@ -17,10 +17,7 @@ pub(crate) fn snap_plan(plan: &mut Plan, lines: &[String]) {
     for op in std::mem::take(&mut plan.ops) {
         match op {
             Op::Replace { index, old, new } => {
-                match expand_replace(lines, index, &old, &new, &mut claimed) {
-                    SnapOutcome::Keep => out.push(Op::Replace { index, old, new }),
-                    SnapOutcome::Replace(ops) => out.extend(ops),
-                }
+                out.extend(expand_replace(lines, index, &old, &new, &mut claimed));
             }
             Op::Insert {
                 index,
@@ -40,31 +37,25 @@ pub(crate) fn snap_plan(plan: &mut Plan, lines: &[String]) {
 /// A Word table is one view index whose prompt text joins cells with ` | `.
 /// Several replaces on that index are valid; a leftover op with the wrong
 /// paragraph number is not.
-enum SnapOutcome {
-    Keep,
-    Replace(Vec<Op>),
-}
-
 fn expand_replace(
     lines: &[String],
     index: u32,
     old: &str,
     new: &str,
     claimed: &mut BTreeSet<(u32, String)>,
-) -> SnapOutcome {
+) -> Vec<Op> {
     let old_clean = strip_prompt_junk(old);
     let new_clean = strip_prompt_junk(new);
     if old_clean.is_empty() {
-        return SnapOutcome::Replace(Vec::new());
+        return Vec::new();
     }
     let old_parts = split_mashed(&old_clean);
     if old_parts.is_empty() {
-        return SnapOutcome::Replace(Vec::new());
+        return Vec::new();
     }
     let new_parts = split_mashed(&new_clean);
     let mut ops = Vec::new();
     let mut cursor = index;
-    let mut duplicate = false;
     for (i, part) in old_parts.iter().enumerate() {
         let model_new = new_parts.get(i).map(String::as_str).unwrap_or("");
         for needle in needles_for_part(lines, cursor, part) {
@@ -72,12 +63,11 @@ fn expand_replace(
             else {
                 continue;
             };
-            let key = (idx, actual.to_lowercase());
             if actual.trim().is_empty() {
                 continue;
             }
+            let key = (idx, actual.to_lowercase());
             if !claimed.insert(key) {
-                duplicate = true;
                 continue;
             }
             ops.push(Op::Replace {
@@ -88,13 +78,7 @@ fn expand_replace(
             cursor = idx;
         }
     }
-    if ops.is_empty() {
-        // Do not keep an unsnappable replace (`H1:` from the view
-        // prefix). Strict apply aborts the whole batch on the first miss.
-        let _ = duplicate;
-        return SnapOutcome::Replace(Vec::new());
-    }
-    SnapOutcome::Replace(ops)
+    ops
 }
 
 fn needles_for_part(lines: &[String], index: u32, part: &str) -> Vec<String> {
@@ -124,7 +108,7 @@ fn split_mashed(s: &str) -> Vec<String> {
 }
 
 /// Phi-3 often emits `insert` after a line instead of `replace`. Track
-/// `before`/`after` then dies (`needs match`) and strict apply writes nothing.
+/// `before`/`after` then dies (`needs match`).
 /// A same-length n-gram that shares the last word becomes a replace
 /// (`thirty days` → `sixty days`), including a prefix of a mashed insert
 /// (`sixty days of invoice date`) and a hit on a neighbor line. A short

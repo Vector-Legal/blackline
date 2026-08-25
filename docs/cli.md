@@ -186,7 +186,9 @@ blackline fixtures DIR
 
 `bl ai` is a subcommand on this CLI. See [ai.md](ai.md). You do not
 pass `--from` / `--to`: phrases in the instruction select the numbered
-view. Those flags remain an optional override.
+view. Those flags remain an optional override. Apply is best-effort
+by default (`--strict` to abort on the first miss). Default stderr is
+short; `--verbose` prints every op.
 
 ```
 blackline ai FILE INSTRUCTION -o OUT --author NAME

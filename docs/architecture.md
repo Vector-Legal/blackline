@@ -244,7 +244,7 @@ format façades and does not add models, prompts, or conversion to
 `blackline-core`.
 
 ```
-prompt + numbered view (instruction hits, or --from/--to)  →  Plan JSON  →  Docx::track / Xlsx::edit / Pptx::edit
+prompt + numbered view  →  Plan JSON  →  snap onto real spans  →  Docx::track / Xlsx::edit / Pptx::edit
 ```
 
 `--from` / `--to` is optional. When omitted, `bl ai` searches the file

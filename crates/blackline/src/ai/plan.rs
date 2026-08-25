@@ -259,6 +259,19 @@ pub(crate) fn json_object_complete(text: &str) -> bool {
 /// earlier once [`json_object_complete`] is true.
 pub(crate) const PLAN_MAX_TOKENS: u32 = 1536;
 
+/// One in-place progress line for a multi-chunk plan.
+pub(crate) fn eprint_chunk_progress(done: usize, total: usize) {
+    if total <= 1 {
+        return;
+    }
+    use std::io::Write;
+    eprint!("\rplanning {done}/{total}");
+    let _ = std::io::stderr().flush();
+    if done == total {
+        eprintln!();
+    }
+}
+
 /// Parse a [`Plan`] from model text. Accepts a bare object or one wrapped
 /// in prose / a markdown fence.
 pub fn parse_plan_json(text: &str) -> Result<Plan, AiError> {
@@ -272,7 +285,6 @@ pub fn parse_plan_json(text: &str) -> Result<Plan, AiError> {
         }
     }
     if let Some(plan) = salvage_plan(trimmed) {
-        eprintln!("salvaged {} op(s) from truncated JSON", plan.ops.len());
         return Ok(plan);
     }
     if trimmed.contains('{') {

@@ -669,7 +669,10 @@ fn ai_help_is_on_the_main_cli() {
         .stdout(predicate::str::contains("--model"))
         .stdout(predicate::str::contains("--author"))
         .stdout(predicate::str::contains("--dry-run"))
-        .stdout(predicate::str::contains("--clear-cache"));
+        .stdout(predicate::str::contains("--strict"))
+        .stdout(predicate::str::contains("--clear-cache"))
+        .stdout(predicate::str::contains("best-effort"))
+        .stdout(predicate::str::contains("--lenient").not());
 }
 
 #[test]

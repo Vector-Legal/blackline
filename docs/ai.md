@@ -39,12 +39,12 @@ bl ai FILE INSTRUCTION
         --dry-run
         --json
         --no-track            DOCX: silent edit, not a redline
-        --lenient
+        --strict              abort on the first failed op
         --granularity char|word|sentence
         --from N --to N       optional window; default is phrases from
                               the instruction
         --sheet NAME          XLSX
-        --verbose
+        --verbose             fetch, unload, and every apply op
         --clear-cache         delete downloaded GGUFs
 ```
 
@@ -72,9 +72,15 @@ a 128k GGUF does not size a 128k KV cache. Generation stops after 256
 new tokens so a run cannot go forever.
 
 Preset names (`phi-3`, `tinyllama`, …) always win over a file of the
-same name in the current directory. `bl ai` prints `backend=` and
-`context=` on load. If you still see `backend=kalosm` on a Mac, the
+same name in the current directory. `bl ai` prints one `loading model`
+line with `backend=` and `context=`. `--verbose` also prints cache
+fetch and unload. If you still see `backend=kalosm` on a Mac, the
 binary was not built with `--features metal`.
+
+Apply is **best-effort** by default. A leftover model op is reported
+and the rest still writes. That is the opposite of `bl docx edit`
+(strict unless `--lenient`). Pass `--strict` to abort on the first
+miss. `--json` is the full plan + apply report.
 
 ## Lifecycle
 
@@ -132,9 +138,11 @@ explicit override.
 FILE + INSTRUCTION
     → numbered view (instruction hits, document-wide chunks, or `--from`/`--to`)
     → JSON Plan (llama.cpp Metal, or Kalosm constrained / JSON)
+    → snap (rewrite ops onto text that exists in the paragraph)
     → blackline track / edit
     → package check
 ```
 
-There is one abstraction, `Completer`. Production is Kalosm. Tests inject
-a canned plan. No tool loop, no RAG, no conversion layer.
+There are two extra types: `Completer` (production is Kalosm / llama.cpp;
+tests inject a canned plan) and `snap_plan` (Phi-3 ops → real spans).
+No tool loop, no RAG, no conversion layer.
