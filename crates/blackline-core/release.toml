@@ -3,7 +3,7 @@
 # The workspace shares one CHANGELOG.md at the repository root, but
 # cargo-release applies `pre-release-replacements` once per package with
 # paths relative to that package. Scoping them to this one crate keeps the
-# changelog rewrite happening exactly once per release rather than five
+# changelog rewrite happening exactly once per release rather than six
 # times (which `exactly = 1` would reject on the second pass).
 
 # Roll `[Unreleased]` into the new version and fix the Keep a Changelog

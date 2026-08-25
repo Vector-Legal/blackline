@@ -29,14 +29,16 @@ on it.
 | [`blackline-docx`](crates/blackline-docx) | WordprocessingML: view, search, edit, redline, track, comments, create, check |
 | [`blackline-xlsx`](crates/blackline-xlsx) | SpreadsheetML: sheets, cells, shared strings, create, edit, check |
 | [`blackline-pptx`](crates/blackline-pptx) | PresentationML: slides, text frames, create, edit, check |
-| [`blackline`](crates/blackline) | Agent-first noun-verb CLI (`blackline` / `bl`) |
+| [`blackline`](crates/blackline) | Agent-first noun-verb CLI (`blackline` / `bl`), including `bl ai` |
 
 Docs: [architecture](docs/architecture.md) · [CLI reference](docs/cli.md) ·
+[ai](docs/ai.md) ·
 [releasing](docs/releasing.md) · [going public](docs/going-public.md) ·
 [changelog](CHANGELOG.md)
 
 ```bash
 cargo install blackline              # binaries: blackline, bl
+cargo install blackline --features kalosm   # same CLI, plus a working `bl ai`
 cargo add blackline-docx            # or blackline-xlsx / blackline-pptx
 ```
 
@@ -60,7 +62,7 @@ Install (Rust toolchain required; `bl` is an alias for `blackline`):
     bl --version
 
 Grammar is `bl <format> <verb> FILE [args]`, where format is docx | xlsx |
-pptx, plus the `track`, `xml`, `unpack`, `pack` and `fixtures` commands.
+pptx, plus the `track`, `xml`, `ai`, `unpack`, `pack` and `fixtures` commands.
 
 Rules that matter:
 - `info`, `check`, `changes`, `comments` and `--json` always emit JSON. Parse
@@ -112,6 +114,13 @@ Need something the verbs do not cover? Drop to the XML:
 `bl fixtures ./corpus` writes sample DOCX/XLSX/PPTX files to experiment on
 without needing real documents. Run `bl <format> --help` for the full verb
 list, or see docs/cli.md.
+
+Natural language (local AI on the same CLI; install with `--features kalosm`,
+and add `,metal` on Apple Silicon or `,cuda` on NVIDIA):
+
+    bl ai contract.docx "change thirty days to sixty days" \
+        -o revised.docx --author "Jane Doe"
+    bl ai --clear-cache
 ````
 
 </details>
@@ -131,6 +140,7 @@ xlsx   view | info | find | edit | create | check | cat | parts
 pptx   view | info | find | edit | create | check | cat | parts
 xml    get | eval | select | edit | patch | update
 track  apply | redline | changes | comments | settle
+ai     FILE INSTRUCTION
 unpack FILE DIR
 pack   DIR FILE
 fixtures DIR
@@ -184,6 +194,11 @@ bl unpack file.docx unpacked/ && bl pack unpacked/ out.docx
 
 # Synthetic test corpus
 bl fixtures ./corpus
+
+# Natural language — same CLI; needs `--features kalosm` to run a model
+bl ai contract.docx "change thirty days to sixty days" \
+    -o revised.docx --author "Jane Doe"
+bl ai --clear-cache
 ```
 
 ### Conventions
@@ -198,6 +213,25 @@ bl fixtures ./corpus
 Edits are **strict** unless `--lenient` is passed. `--dry-run` validates without writing.
 
 `--granularity` on `docx edit --track` and `docx redline`: `char` · `word` (default) · `sentence`.
+
+### Natural language
+
+`bl ai` is a subcommand on this CLI. A local Kalosm model emits the op
+list; blackline applies it. Default model is quantized Phi-3.5 mini.
+`cargo install blackline` stays lean; rebuild with `--features kalosm`
+(plus `metal` or `cuda`) so the model runtime is present.
+See [docs/ai.md](docs/ai.md).
+
+```bash
+bl ai contract.docx "change thirty days to sixty days" \
+    -o revised.docx --author "Jane Doe"
+bl ai --clear-cache
+```
+
+The model is a one-shot handle. After it emits the plan, blackline
+drops it; Kalosm's worker thread then frees DRAM / Metal / CUDA.
+The GGUF stays on disk so the next run is local. `bl ai --clear-cache`
+deletes that cache. See [docs/ai.md](docs/ai.md).
 
 ## Library
 
@@ -286,8 +320,8 @@ crates/
 ├── blackline-docx/    # document façade, edits, revisions, track, comments
 ├── blackline-xlsx/    # workbook, cells, shared strings
 ├── blackline-pptx/    # presentation, slides
-└── blackline/         # bins blackline + bl
-docs/                  # architecture, CLI, releasing, going public
+└── blackline/         # bins blackline + bl, including `bl ai`
+docs/                  # architecture, CLI, ai, releasing, going public
 ```
 
 ## License

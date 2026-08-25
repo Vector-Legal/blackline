@@ -28,14 +28,14 @@ Version tags, SemVer, and the day-to-day release loop live in
 
       ```bash
       for n in blackline blackline-core blackline-docx \
-               blackline-xlsx blackline-pptx blackline; do
+               blackline-xlsx blackline-pptx; do
         code=$(curl -sS -o /dev/null -w "%{http_code}" \
           "https://crates.io/api/v1/crates/$n")
         echo "$n $code"   # 404 = free
       done
       ```
 
-      As of 2026-08-22 all six names returned 404.
+      As of 2026-08-22 all five names returned 404.
 
 The published CLI crate is **`blackline`** (`cargo install blackline`
 → binaries `blackline` and `bl`). The bare name was claimed by renaming

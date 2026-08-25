@@ -23,7 +23,7 @@ operating on the OOXML inside the package (no HTML/Markdown/PDF conversion).
     bl --version
 
 Grammar is `bl <format> <verb> FILE [args]` — format is docx | xlsx | pptx —
-plus `track`, `xml`, `unpack`, `pack` and `fixtures`.
+plus `track`, `xml`, `ai`, `unpack`, `pack` and `fixtures`.
 
 Rules that matter:
 - `info`, `check`, `changes`, `comments` and `--json` always emit JSON. Parse
@@ -74,6 +74,14 @@ Escape hatch to raw XML:
 
 `bl fixtures ./corpus` writes sample DOCX/XLSX/PPTX files to experiment on.
 Run `bl <format> --help` for the full verb list.
+
+Natural language (rebuild with `--features kalosm` so the model is present).
+The model loads for that command only and is dropped before the file is
+written. `bl ai --clear-cache` deletes the downloaded GGUFs.
+
+    bl ai contract.docx "change thirty days to sixty days" \
+        -o revised.docx --author "Jane Doe"
+    bl ai --clear-cache
 ````
 
 - [CLI reference](https://github.com/Vector-Legal/blackline/blob/main/docs/cli.md)

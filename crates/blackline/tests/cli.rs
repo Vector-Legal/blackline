@@ -655,3 +655,139 @@ fn fixtures_pass_package_check() {
             .stdout(predicate::str::contains("\"status\": \"pass\""));
     }
 }
+
+#[test]
+fn ai_help_is_on_the_main_cli() {
+    bl().args(["--help"])
+        .assert()
+        .success()
+        .stdout(predicate::str::contains("Local AI"));
+    bl().args(["ai", "--help"])
+        .assert()
+        .success()
+        .stdout(predicate::str::contains("phi-3.5"))
+        .stdout(predicate::str::contains("--model"))
+        .stdout(predicate::str::contains("--author"))
+        .stdout(predicate::str::contains("--dry-run"))
+        .stdout(predicate::str::contains("--clear-cache"));
+}
+
+#[test]
+fn ai_refuses_pdf_and_requires_author() {
+    let dir = fixtures();
+    let pdf = {
+        let p = dir.path().join("memo.pdf");
+        std::fs::write(&p, b"%PDF").unwrap();
+        p.display().to_string()
+    };
+    bl().args(["ai", &pdf, "summarize this", "--dry-run"])
+        .assert()
+        .failure()
+        .code(2)
+        .stderr(predicate::str::contains(".docx"));
+
+    let file = path(&dir, "simple.docx");
+    bl().args(["ai", &file, "change hello to hi", "--dry-run"])
+        .env_remove("BLACKLINE_AUTHOR")
+        .assert()
+        .failure()
+        .code(2)
+        .stderr(predicate::str::contains("author required"));
+}
+
+#[test]
+fn ai_refuses_markdown_and_unknown_model() {
+    let dir = fixtures();
+    let md = {
+        let p = dir.path().join("notes.md");
+        std::fs::write(&p, "# Hi\n").unwrap();
+        p.display().to_string()
+    };
+    bl().args(["ai", &md, "edit this", "--dry-run"])
+        .assert()
+        .failure()
+        .code(2)
+        .stderr(predicate::str::contains("does not convert"));
+
+    let file = path(&dir, "simple.docx");
+    bl().args([
+        "ai",
+        &file,
+        "change hello to hi",
+        "--dry-run",
+        "--author",
+        "Jane",
+        "--model",
+        "gpt-4",
+    ])
+    .assert()
+    .failure()
+    .code(2)
+    .stderr(predicate::str::contains("phi-3.5"));
+}
+
+#[test]
+fn ai_missing_output_is_usage() {
+    let dir = fixtures();
+    let file = path(&dir, "simple.docx");
+    bl().args(["ai", &file, "change hello to hi", "--author", "Jane"])
+        .assert()
+        .failure()
+        .code(2)
+        .stderr(predicate::str::contains("-o/--output"));
+}
+
+#[test]
+fn ai_clear_cache_deletes_ggufs() {
+    let dir = TempDir::new().unwrap();
+    let cache = dir.path().join("kalosm").join("cache");
+    std::fs::create_dir_all(&cache).unwrap();
+    let gguf = cache.join("phi.gguf");
+    std::fs::write(&gguf, vec![0_u8; 4096]).unwrap();
+
+    bl().env("BLACKLINE_KALOSM_CACHE", &cache)
+        .args(["ai", "--clear-cache"])
+        .assert()
+        .success()
+        .stderr(predicate::str::contains("cleared"));
+    assert!(!gguf.exists());
+    assert!(!cache.exists());
+
+    bl().env("BLACKLINE_KALOSM_CACHE", &cache)
+        .args(["ai", "--clear-cache", "--json"])
+        .assert()
+        .success()
+        .stdout(predicate::str::contains("\"existed\": false"));
+}
+
+#[test]
+fn ai_clear_cache_refuses_a_file_without_instruction() {
+    let dir = fixtures();
+    let file = path(&dir, "simple.docx");
+    bl().args(["ai", &file, "--clear-cache"])
+        .assert()
+        .failure()
+        .code(2)
+        .stderr(predicate::str::contains("FILE INSTRUCTION"));
+}
+
+#[test]
+fn ai_without_kalosm_explains_rebuild() {
+    if cfg!(feature = "kalosm") {
+        return;
+    }
+    let dir = fixtures();
+    let file = path(&dir, "simple.docx");
+    bl().args([
+        "ai",
+        &file,
+        "change hello to hi",
+        "--dry-run",
+        "--author",
+        "Jane",
+    ])
+    .assert()
+    .failure()
+    .code(2)
+    .stderr(predicate::str::contains("--features kalosm"));
+}

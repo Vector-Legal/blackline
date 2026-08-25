@@ -4,6 +4,7 @@
 
 ```
 blackline <format> <verb> [args]
+blackline ai FILE INSTRUCTION
 blackline unpack FILE DIR
 blackline pack DIR FILE
 blackline fixtures DIR
@@ -180,3 +181,19 @@ blackline fixtures DIR
 
 `unpack` pretty-prints XML parts. `pack` condenses them back into a
 `.docx` / `.xlsx` / `.pptx`. `fixtures` writes the synthetic test corpus.
+
+## Natural language
+
+`bl ai` is a subcommand on this CLI. See [ai.md](ai.md).
+
+```
+blackline ai FILE INSTRUCTION -o OUT --author NAME
+blackline ai --clear-cache
+```
+
+The model emits blackline ops; this CLI applies them. Default model is
+quantized Phi-3.5 mini (`--model` overrides). `cargo install blackline`
+stays lean; rebuild with `--features kalosm` (plus `metal` or `cuda`)
+so the model runtime is present. The model is one-shot: loaded, used
+for one plan, dropped before the write. `bl ai --clear-cache` deletes
+the downloaded GGUFs. See [ai.md](ai.md#lifecycle).

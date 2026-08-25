@@ -157,6 +157,7 @@ xlsx   view | info | find | edit | create | check | cat | parts
 pptx   view | info | find | edit | create | check | cat | parts
 xml    get | eval | select | edit | patch | update
 track  apply | redline | changes | comments | settle
+ai     FILE INSTRUCTION
 unpack FILE DIR
 pack   DIR FILE
 fixtures DIR
@@ -233,6 +234,27 @@ the original visible text; accept-all must reproduce the new text.
 Package check must pass after every successful edit. Two-document
 redline on a file that already contains Word revisions must flatten
 those revisions first.
+
+---
+
+## AI sector
+
+`bl ai` lives in the CLI crate, not a format crate. It depends on the
+format façades and does not add models, prompts, or conversion to
+`blackline-core`.
+
+```
+prompt + numbered view  →  Kalosm (constrained Plan)  →  Docx::track / Xlsx::edit / Pptx::edit
+```
+
+`Completer` is the only extra type. Tests inject a canned plan so CI
+never downloads a GGUF. Default model is quantized Phi-3.5 mini;
+`--model` overrides. PDF and Markdown stay out of scope. The Kalosm
+`Llama` handle is dropped after the plan is parsed; Kalosm's worker
+thread then frees the tensors. There is no resident model.
+`bl ai --clear-cache` deletes the on-disk GGUFs.
+
+See [ai.md](ai.md).
 
 ---
 

@@ -8,6 +8,17 @@ Versioning follows [SemVer](https://semver.org) as described in
 
 ## [Unreleased]
 
+### Added
+
+- `bl ai FILE INSTRUCTION`: a local AI frontend on the main CLI that
+  turns a natural-language prompt into blackline ops. Default model is
+  quantized Phi-3.5 mini; `--model` selects a preset or a GGUF. DOCX
+  ops apply as Word tracked changes. PDF / Markdown are refused — the
+  toolkit still does not convert. `cargo install blackline` stays lean;
+  rebuild with `--features kalosm` (plus `metal` or `cuda`). The model
+  is dropped after the plan is parsed. `bl ai --clear-cache` deletes the
+  downloaded GGUFs.
+
 ## [0.3.2] — 2026-08-23
 
 ### Fixed
