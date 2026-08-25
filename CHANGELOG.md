@@ -43,6 +43,8 @@ Versioning follows [SemVer](https://semver.org) as described in
   All-caps detection ignores `[fill-in]` brackets so a table header
   insert snaps to the first word instead of a piped `old` apply
   cannot find.
+  A replace whose `old` is only spaces (Phi-3's empty heading
+  line) is dropped so strict apply can finish the rest.
   Prompt lines are
   abbreviated without `…`. Ops use a short `old` and the real
   paragraph index. `--from` / `--to` remains an explicit override.

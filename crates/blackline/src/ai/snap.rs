@@ -54,9 +54,12 @@ fn expand_replace(
 ) -> SnapOutcome {
     let old_clean = strip_prompt_junk(old);
     let new_clean = strip_prompt_junk(new);
+    if old_clean.is_empty() {
+        return SnapOutcome::Replace(Vec::new());
+    }
     let old_parts = split_mashed(&old_clean);
     if old_parts.is_empty() {
-        return SnapOutcome::Keep;
+        return SnapOutcome::Replace(Vec::new());
     }
     let new_parts = split_mashed(&new_clean);
     let mut ops = Vec::new();
@@ -70,6 +73,9 @@ fn expand_replace(
                 continue;
             };
             let key = (idx, actual.to_lowercase());
+            if actual.trim().is_empty() {
+                continue;
+            }
             if !claimed.insert(key) {
                 duplicate = true;
                 continue;
@@ -735,6 +741,34 @@ mod tests {
             !replace_triples(&plan).iter().any(|(i, _, _)| *i >= 20),
             "walked to a far article: {:?}",
             replace_triples(&plan)
+        );
+    }
+
+    #[test]
+    fn whitespace_only_old_is_dropped() {
+        let lines = vec!["Limitation of liability.".into()];
+        let mut plan = Plan {
+            ops: vec![
+                Op::Replace {
+                    index: 1,
+                    old: "    ".into(),
+                    new: "H3: LIMITATION OF LIABILITY".into(),
+                },
+                Op::Replace {
+                    index: 1,
+                    old: "Limitation of liability.".into(),
+                    new: "LIMITATION OF LIABILITY.".into(),
+                },
+            ],
+        };
+        snap_plan(&mut plan, &lines);
+        assert_eq!(
+            replace_triples(&plan),
+            vec![(
+                1,
+                "Limitation of liability.".into(),
+                "LIMITATION OF LIABILITY.".into()
+            )]
         );
     }
 
