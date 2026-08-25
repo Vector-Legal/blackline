@@ -76,7 +76,7 @@ fn needles_for_part(lines: &[String], index: u32, part: &str) -> Vec<String> {
     }
     let bits: Vec<String> = part
         .split(" / ")
-        .map(|s| strip_prompt_junk(s))
+        .map(strip_prompt_junk)
         .filter(|s| s.chars().count() >= 2)
         .collect();
     if bits.len() > 1 {
@@ -130,8 +130,8 @@ fn locate(lines: &[String], index: u32, needle: &str) -> Option<(u32, String)> {
         }
     }
     let start = usize::try_from(index.saturating_sub(1)).unwrap_or(0);
-    for i in start..lines.len() {
-        if let Some(matched) = match_in(line_body(&lines[i]), needle) {
+    for (i, line) in lines.iter().enumerate().skip(start) {
+        if let Some(matched) = match_in(line_body(line), needle) {
             let idx = u32::try_from(i.saturating_add(1)).ok()?;
             return Some((idx, matched));
         }
