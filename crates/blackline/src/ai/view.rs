@@ -25,6 +25,11 @@ pub const CONTEXT_CHARS: usize = 2_500;
 /// not eat the whole window and tempt the model to copy it into `old`.
 pub const PROMPT_LINE_CHARS: usize = 120;
 
+/// Max paragraphs per model call. ~27 ops (two 2500-char chunks of a
+/// YC form) overflowed the generation cap mid-JSON. 12 short replaces
+/// fit; leftover lines go to the next chunk.
+const MAX_CHUNK_LINES: usize = 12;
+
 /// Paragraphs kept on each side of an instruction hit.
 const HIT_PAD: usize = 1;
 
@@ -111,11 +116,15 @@ impl DocumentView {
     /// Prompt block: format header plus numbered lines.
     pub fn render(&self) -> String {
         let mut out = String::new();
+        let example = self
+            .lines
+            .first()
+            .map(|line| line_label(line))
+            .unwrap_or_else(|| "1".into());
         out.push_str(&format!(
-            "# {} ({} lines; INDEX is the number before |, not 1..{})\n",
+            "# {} ({} lines)\n# copy INDEX from each line (`{example}|` → index {example}, not 1 unless the line is 1|)\n",
             self.format,
             self.lines.len(),
-            self.lines.len()
         ));
         if !self.window.is_empty() {
             out.push_str(&format!("# window: {}\n", self.window));
@@ -173,7 +182,9 @@ fn pack_windows(format: Format, lines: Vec<String>, note: String) -> Vec<Documen
     let mut used = 0usize;
     for line in lines {
         let cost = abbreviate_line(&line, PROMPT_LINE_CHARS).len() + 1;
-        if !cur.is_empty() && used.saturating_add(cost) > CONTEXT_CHARS {
+        if !cur.is_empty()
+            && (cur.len() >= MAX_CHUNK_LINES || used.saturating_add(cost) > CONTEXT_CHARS)
+        {
             groups.push(std::mem::take(&mut cur));
             used = 0;
         }

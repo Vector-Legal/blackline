@@ -254,7 +254,7 @@ pub(crate) fn json_object_complete(text: &str) -> bool {
 
 /// New tokens for a plan. Also the hard stop; generation should stop
 /// earlier once [`json_object_complete`] is true.
-pub(crate) const PLAN_MAX_TOKENS: u32 = 768;
+pub(crate) const PLAN_MAX_TOKENS: u32 = 1536;
 
 /// Parse a [`Plan`] from model text. Accepts a bare object or one wrapped
 /// in prose / a markdown fence.
@@ -263,25 +263,63 @@ pub fn parse_plan_json(text: &str) -> Result<Plan, AiError> {
     if let Ok(plan) = serde_json::from_str::<Plan>(trimmed) {
         return Ok(plan);
     }
-    let Some(json) = extract_json_object(trimmed) else {
-        if trimmed.contains('{') {
-            return Err(AiError::Model(format!(
-                "model cut off mid-JSON (generation cap). \
-                 Keep `old`/`new` to a few words, not the whole paragraph. got: {}",
-                truncate_for_error(trimmed)
-            )));
+    if let Some(json) = extract_json_object(trimmed) {
+        if let Ok(plan) = serde_json::from_str::<Plan>(json) {
+            return Ok(plan);
         }
+    }
+    if let Some(plan) = salvage_plan(trimmed) {
+        eprintln!("salvaged {} op(s) from truncated JSON", plan.ops.len());
+        return Ok(plan);
+    }
+    if trimmed.contains('{') {
         return Err(AiError::Model(format!(
-            "model did not emit a plan object. got: {}",
+            "model cut off mid-JSON (generation cap). \
+             Keep `old`/`new` to a few words, not the whole paragraph. got: {}",
             truncate_for_error(trimmed)
         )));
-    };
-    serde_json::from_str::<Plan>(json).map_err(|e| {
-        AiError::Model(format!(
-            "model emitted JSON that is not a plan ({e}). got: {}",
-            truncate_for_error(json)
-        ))
-    })
+    }
+    Err(AiError::Model(format!(
+        "model did not emit a plan object. got: {}",
+        truncate_for_error(trimmed)
+    )))
+}
+
+/// Keep complete ops when generation stops in the middle of the next one.
+fn salvage_plan(text: &str) -> Option<Plan> {
+    let ops_key = text.find("\"ops\"")?;
+    let after_key = &text[ops_key + 5..];
+    let bracket = after_key.find('[')?;
+    let body = &after_key[bracket + 1..];
+    let bytes = body.as_bytes();
+    let mut i = 0usize;
+    let mut ops = Vec::new();
+    loop {
+        while i < body.len() && (bytes[i].is_ascii_whitespace() || bytes[i] == b',') {
+            i += 1;
+        }
+        if i >= body.len() || bytes[i] == b']' {
+            break;
+        }
+        if bytes[i] != b'{' {
+            break;
+        }
+        let Some(obj) = extract_json_object(&body[i..]) else {
+            break;
+        };
+        match serde_json::from_str::<Op>(obj) {
+            Ok(op) => {
+                ops.push(op);
+                i += obj.len();
+            }
+            Err(_) => break,
+        }
+    }
+    if ops.is_empty() {
+        None
+    } else {
+        Some(Plan { ops })
+    }
 }
 
 fn extract_json_object(text: &str) -> Option<&str> {
@@ -371,6 +409,19 @@ mod tests {
         assert_eq!(plan.ops[0].name(), "replace");
         let empty = super::parse_plan_json("here you go {\"ops\":[]} thanks").unwrap();
         assert!(empty.ops.is_empty());
+    }
+
+    #[test]
+    fn salvage_keeps_complete_ops_from_truncated_json() {
+        let plan = super::parse_plan_json(
+            r#"{"ops":[
+{"op":"replace","index":1,"old":"Customer:","new":"CUSTOMER:"},
+{"op":"replace","index":2,"old":"Contact:","new":"CONTACT:"},
+{"op":"repl"#,
+        )
+        .unwrap();
+        assert_eq!(plan.ops.len(), 2);
+        assert_eq!(plan.ops[0].name(), "replace");
     }
 
     #[test]

@@ -14,9 +14,10 @@ Versioning follows [SemVer](https://semver.org) as described in
   instruction (`change thirty days to sixty days`, quoted spans,
   `change title to …` as the first paragraph) select the numbered
   view. `every paragraph` / `throughout the document` walks the file
-  in chunks. Prompt lines are abbreviated; ops use a short `old` and
-  the real paragraph index. `--from` / `--to` remains an explicit
-  override.
+  in chunks of at most 12 paragraphs so the plan JSON can finish.
+  Truncated JSON keeps complete ops. Prompt lines are abbreviated; ops
+  use a short `old` and the real paragraph index. `--from` / `--to`
+  remains an explicit override.
 
 ### Fixed
 

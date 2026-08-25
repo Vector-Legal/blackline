@@ -119,7 +119,7 @@ through `Docx::track` unless `--no-track`. You do not have to pass
 - `change thirty days to sixty days` looks up that phrase
 - `change title to …` is the first paragraph
 - `update every paragraph …` / `throughout the document` walks the
-  whole file in chunks (the GGUF stays loaded)
+  whole file in chunks of at most 12 lines (the GGUF stays loaded)
 
 Each prompt line is abbreviated. The model must copy a **short** `old`
 (a few words) and the number before `|` as `index` — not 1..N of the
