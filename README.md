@@ -217,7 +217,7 @@ Edits are **strict** unless `--lenient` is passed. `--dry-run` validates without
 ### Natural language
 
 `bl ai` is a subcommand on this CLI. A local Kalosm model emits the op
-list; blackline applies it. Default model is quantized Phi-3.5 mini.
+list; blackline applies it. Default model is quantized Phi-3 mini 4k.
 `cargo install blackline` stays lean; rebuild with `--features kalosm`
 (plus `metal` or `cuda`) so the model runtime is present.
 See [docs/ai.md](docs/ai.md).

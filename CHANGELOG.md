@@ -10,11 +10,11 @@ Versioning follows [SemVer](https://semver.org) as described in
 
 ### Fixed
 
-- `--features kalosm` (and `kalosm,metal` / `kalosm,cuda`) failed to
-  compile: Kalosm's `Parse` / `Schema` derives expand to
-  `kalosm_sample::…`, which must be a direct dependency, and the
-  `llama` feature must be on so `Llama` / `LlamaSource` exist.
-  Default `cargo install blackline` was never affected.
+- Default `bl ai` model is Phi-3 mini 4k, not Phi-3.5. Kalosm's
+  `phi_3_5_mini_4k_instruct` GGUF is 128k context; on Metal that
+  sized caches to tens of GB and Mirostat then failed with
+  `A weight is invalid in distribution`. Constrained generation
+  now uses greedy sampling. `--model phi-3.5` still exists.
 
 ## [0.4.0] — 2026-08-25
 
