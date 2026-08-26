@@ -8,6 +8,13 @@ Versioning follows [SemVer](https://semver.org) as described in
 
 ## [Unreleased]
 
+### Changed
+
+- README documents `bl ai` as a completely local LLM for redlining
+  and file editing, including the real limits (opt-in Kalosm
+  runtime, small default model, narrow op set, windowed view,
+  best-effort apply).
+
 ## [0.4.2] — 2026-08-25
 
 ### Added
