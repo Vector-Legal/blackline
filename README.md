@@ -32,7 +32,7 @@ on it.
 | [`blackline`](crates/blackline) | Agent-first noun-verb CLI (`blackline` / `bl`), including `bl ai` |
 
 Docs: [architecture](docs/architecture.md) · [CLI reference](docs/cli.md) ·
-[ai](docs/ai.md) ·
+[ai](docs/ai.md) · [completely local LLM](#completely-local-llm) ·
 [releasing](docs/releasing.md) · [going public](docs/going-public.md) ·
 [changelog](CHANGELOG.md)
 
@@ -215,26 +215,80 @@ Edits are **strict** unless `--lenient` is passed. `--dry-run` validates without
 
 `--granularity` on `docx edit --track` and `docx redline`: `char` · `word` (default) · `sentence`.
 
-### Natural language
+## Completely local LLM
 
-`bl ai` is a subcommand on this CLI. A local Kalosm model emits the op
-list; blackline applies it. Default model is quantized Phi-3 mini 4k.
-You do not pass `--from` / `--to`: phrases in the instruction select
-the numbered view. Apply is best-effort (`--strict` to abort on the
-first miss). `cargo install blackline` stays lean; rebuild with
-`--features kalosm` (plus `metal` or `cuda`) so the model runtime is
-present. See [docs/ai.md](docs/ai.md).
+`bl ai` runs a language model on this machine. The file never leaves
+the disk: no cloud API, no conversion to Markdown or HTML, no
+round-trip through a hosted editor. A quantized GGUF emits a JSON
+plan; blackline applies it as native OOXML.
+
+On a Word file that is a **tracked-change redline** someone can accept
+or reject in Word. On a workbook or a deck it is a silent cell or
+text-frame edit. The model is not allowed to write XML. It can only
+name a small set of blackline ops. The package, the redline markup,
+and the check against the original stay in deterministic Rust.
+
+That is the point of a local planner on this CLI: confidential drafts
+stay local after the weights are cached, and the edit path is the
+same one an agent already uses (`track apply`, `docx edit`,
+`xlsx edit`, `pptx edit`).
 
 ```bash
+cargo install blackline --features kalosm          # CPU, quantized
+cargo install blackline --features kalosm,metal    # Apple Silicon
+cargo install blackline --features kalosm,cuda     # NVIDIA
+
 bl ai contract.docx "change thirty days to sixty days" \
     -o revised.docx --author "Jane Doe"
+bl ai model.xlsx "set B2 to 42" --in-place
+bl ai deck.pptx "set the title to Q3" -o out.pptx
 bl ai --clear-cache
 ```
 
-The model is a one-shot handle. After it emits the plan, blackline
-drops it; Kalosm's worker thread then frees DRAM / Metal / CUDA.
-The GGUF stays on disk so the next run is local. `bl ai --clear-cache`
-deletes that cache. See [docs/ai.md](docs/ai.md).
+You do not pass `--from` / `--to`: phrases in the instruction select
+the numbered view. Apply is best-effort (`--strict` to abort on the
+first miss). First run downloads a GGUF (default: quantized Phi-3
+mini 4k). After that, inference is local. The model is one-shot:
+loaded for the plan, dropped before the file is written.
+`bl ai --clear-cache` deletes the downloaded weights. Flags, models,
+and lifecycle: [docs/ai.md](docs/ai.md).
+
+### What it does well
+
+- Phrase-level redlines: `change thirty days to sixty days`, `flag the indemnity clause`.
+- Spreadsheet cell writes and slide title / body text, without leaving the machine.
+- Driving the same noun-verb CLI a coding agent already shells out to — not a second product.
+- Keeping deal documents off the network once the GGUF is on disk.
+
+### Limitations
+
+- **Opt-in runtime.** `cargo install blackline` does not ship a model.
+  Rebuild with `--features kalosm` (plus `metal` on Apple Silicon or
+  `cuda` on NVIDIA). `bl ai --help` always works; a prompt without the
+  feature prints the rebuild line.
+- **Small default model.** Phi-3 mini 4k is a planner, not counsel. It
+  will miss nuance, invent spans, and struggle with long or ambiguous
+  instructions. Larger `--model` presets need more RAM / VRAM. A 128k
+  GGUF on Metal can size tens of GB; context is capped at 4k so that
+  does not happen by accident.
+- **Narrow op set.** The model may emit `replace` / `insert` /
+  `delete` / `comment` on DOCX, `set_cell` on XLSX, and `set_text` on
+  PPTX. Table ops, run formatting, sheet structure, slide
+  insert/delete, and raw XML are CLI-only.
+- **Windowed view.** Each prompt is capped at about 2500 characters.
+  Phrase hits (plus a neighbor paragraph) are selected automatically.
+  Document-wide instructions (`every paragraph`,
+  `throughout the document`) walk the file in chunks of at most 12
+  paragraphs. `--from` / `--to` remains an explicit override.
+- **Best-effort apply.** Leftover model ops are reported and the rest
+  still writes. Pass `--strict` to abort on the first miss. Always
+  `bl docx check` the result and read the redline; do not treat a
+  finished plan as reviewed.
+- **One shot.** No chat, no tool loop, no RAG. One instruction, one
+  plan, then the tensors are freed. PDF, Markdown, HTML, and plain
+  text are refused — blackline still does not convert.
+- **XLSX and PPTX have no redline.** Those formats get silent edits.
+  Only DOCX leaves Word-native tracked changes (unless `--no-track`).
 
 ## Library
 
