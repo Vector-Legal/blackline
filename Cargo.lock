@@ -217,7 +217,7 @@ dependencies = [
  "chrono",
  "derive_builder",
  "diligent-date-parser",
- "quick-xml",
+ "quick-xml 0.41.0",
 ]
 
 [[package]]
@@ -359,7 +359,7 @@ dependencies = [
 name = "blackline-core"
 version = "0.4.2"
 dependencies = [
- "quick-xml",
+ "quick-xml 0.42.0",
  "serde",
  "serde_json",
  "tempfile",
@@ -1282,7 +1282,7 @@ dependencies = [
  "base64 0.22.1",
  "crc32fast",
  "image 0.25.10",
- "quick-xml",
+ "quick-xml 0.41.0",
  "serde",
  "serde_json",
  "smallvec",
@@ -2947,9 +2947,9 @@ dependencies = [
 
 [[package]]
 name = "llama-cpp-sys-2"
-version = "0.1.154"
+version = "0.1.155"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "13a9ea2ce0cdc20bcb1870534022e340b391663f8fe09133951e2fe37fbc29cf"
+checksum = "d59ed2a770245cf16526a8643c79872701fc6115556e5d8e675d9248752a1394"
 dependencies = [
  "bindgen",
  "cc",
@@ -4080,6 +4080,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "quick-xml"
+version = "0.42.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "41b1177fdf999d2321d3fb46ff47159d9c1fb9ad66a4879f8c50a0b504615e9b"
+dependencies = [
+ "memchr",
+]
+
+[[package]]
 name = "quote"
 version = "1.0.45"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -4465,7 +4474,7 @@ checksum = "dc13570823abc675c60d7837f1fe7daaf18dd181a3cacb3c6ba7a062eef581c0"
 dependencies = [
  "atom_syndication",
  "derive_builder",
- "quick-xml",
+ "quick-xml 0.41.0",
 ]
 
 [[package]]
