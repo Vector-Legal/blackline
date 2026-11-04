@@ -70,7 +70,7 @@ thiserror = "2"
 # additionally pull bzip2, ppmd, zstd, lzma, xz and aes -- unused codecs
 # that enlarge the binary, widen the dependency graph, and drag in the
 # bzip2-1.0.6 and CC0-1.0 licences.
-zip = { version = "8", default-features = false, features = ["deflate"] }
+zip = { version = "9", default-features = false, features = ["deflate"] }
 
 assert_cmd = "2"
 predicates = "3"
